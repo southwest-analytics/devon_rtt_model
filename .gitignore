@@ -1,3 +1,9 @@
+# Ignore all the output directory and all files in it
+/output/**
+
+# R Project files
+*.Rproj
+
 # History files
 .Rhistory
 .Rapp.history
