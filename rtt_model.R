@@ -1,23 +1,38 @@
-## ---------------------------
-##
-## Script name: rtt_model.R 
-##
-## Purpose of script: Referral To Treatment (RTT) simulation for a single 
-##                    specialty for both admitted and non-admitted pathways over
-##                    a given period for a given number of trials.
-##
-## Author: Richard Blackwell
-##
-## Date Created: 2023-08-02
-##
-## Email: richard.blackwell@swahsn.com
-##
-## ---------------------------
-##
-## Notes: The README.md in the git repo gives a more detailed explanation of the
-##        simulation model and parameters
-##
-## ---------------------------
+# * * 0.1. Waiting List ----
+# ``````````````````````````
+# * * 0.2. Clock Stop ----
+# ````````````````````````
+# * * 0.3. Demand ----
+# ````````````````````
+# * * 0.4. Capacity ----
+# ``````````````````````
+# * * 0.5. Non-RTT Activity ----
+# ``````````````````````````````
+# * * 0.6. Removal Other Than Treatment (ROTT) ----
+# `````````````````````````````````````````````````
+# * * 0.7. Conversions ----
+# `````````````````````````
+
+## ************************************************************************* ##
+##                                                                           ##
+## Script name: rtt_model.R                                                  ##
+##                                                                           ##
+## Purpose of script: Referral To Treatment (RTT) simulation for a single    ##
+##                    specialty for both admitted and non-admitted pathways  ##
+##                    over a given period for a given number of trials.      ##
+##                                                                           ##
+## Author: Richard Blackwell                                                 ##
+##                                                                           ##
+## Date Created: 2023-08-02                                                  ##
+##                                                                           ##
+## Email: richard.blackwell@swahsn.com                                       ##
+##                                                                           ##
+## ************************************************************************* ##
+##                                                                           ##
+## Notes: The README.md in the git repo gives a more detailed explanation    ##
+##        of the simulation model and parameters                             ##
+##                                                                           ##
+## ************************************************************************* ##
 
 library(tidyverse)
 library(VGAM)
@@ -47,6 +62,234 @@ sim_bins <- as.integer(df_param$value[df_param$variable=='bins'])
 outputdir <- paste0(df_param$value[df_param$variable=='base_outdir'], '\\',
                     sim_name)
 dir.create(path = outputdir, showWarnings = FALSE, recursive = TRUE)
+
+# 2. Create Empty Result Variable Matrices ----
+# *********************************************
+
+# * 2.0. Profiles ----
+# ````````````````````
+
+# * * 2.0.1. Clock Stop Profile ----
+# ``````````````````````````````````
+# 2d array of periods (does not include a period 0), bins + 1 (to include bin 0)
+csprof_nonadm <- array(data = rep(0, (sim_periods) * (sim_bins+1)),
+                       dim = c(sim_periods, sim_bins+1))
+csprof_adm <- csprof_nonadm
+
+# * * 2.0.2. Demand Profile ----
+# ``````````````````````````````
+# 2d array of periods (does not include a period 0), bins + 1 (to include bin 0)
+demprof_nonadm <- array(data = rep(0, (sim_periods) * (sim_bins+1)),
+                        dim = c(sim_periods, sim_bins+1))
+demprof_adm <- demprof_nonadm
+
+# * * 2.0.3. Removal Other Than Treatment (ROTT) Profile ----
+# ```````````````````````````````````````````````````````````
+# 2d array of periods (does not include a period 0), bins + 1 (to include bin 0)
+rottprof_nonadm <- array(data = rep(0, (sim_periods) * (sim_bins+1)),
+                         dim = c(sim_periods, sim_bins+1))
+rottprof_adm <- rottprof_nonadm
+
+# * 2.1. Waiting List ----
+# ````````````````````````
+# 3d array of periods + 1 (to include period 0), bins + 1 (to include bin 0), trials
+wl_nonadm <- array(data = rep(0, (sim_periods+1) * (sim_bins+1) * (sim_trials)),
+                   dim = c(sim_periods+1, sim_bins+1, sim_trials))
+# Duplicate for admitted version
+wl_adm <- wl_nonadm
+
+# * 2.2. Clock Stop ----
+# ``````````````````````
+# 3d array of periods (does not include a period 0), bins + 1 (to include bin 0), trials
+cs_nonadm <- array(data = rep(0, (sim_periods) * (sim_bins+1) * (sim_trials)),
+                   dim = c(sim_periods, sim_bins+1, sim_trials))
+cs_adm <- cs_nonadm
+
+# * 2.3. Demand ----
+# ``````````````````
+# 3d array of periods (does not include a period 0), bins + 1 (to include bin 0), trials
+dem_nonadm <- array(data = rep(0, (sim_periods) * (sim_bins+1) * (sim_trials)),
+                    dim = c(sim_periods, sim_bins+1, sim_trials))
+dem_adm <- dem_nonadm
+
+# * 2.4. Capacity ----
+# ````````````````````
+# 2d array of periods (does not include a period 0), trials
+cap_nonadm <- array(data = rep(0, (sim_periods) * (sim_trials)),
+                    dim = c(sim_periods, sim_trials))
+cap_adm <- cap_nonadm
+
+# * 2.5. Non-RTT Activity ----
+# ````````````````````````````
+# 2d array of periods (does not include a period 0), trials
+nonrtt_nonadm <- array(data = rep(0, (sim_periods) * (sim_trials)),
+                       dim = c(sim_periods, sim_trials))
+nonrtt_adm <- nonrtt_nonadm
+
+# * 2.6. Removal Other Than Treatment (ROTT) ----
+# ```````````````````````````````````````````````
+# 3d array of periods (does not include a period 0), bins + 1 (to include bin 0), trials
+rott_nonadm <- array(data = rep(0, (sim_periods) * (sim_bins+1) * (sim_trials)),
+                     dim = c(sim_periods, sim_bins+1, sim_trials))
+rott_adm <- rott_nonadm
+
+# * 2.7. Conversions ----
+# ```````````````````````
+# 3d array of periods (does not include a period 0), bins + 1 (to include bin 0), trials
+conv_nonadm <- array(data = rep(0, (sim_periods) * (sim_bins+1) * (sim_trials)),
+                     dim = c(sim_periods, sim_bins+1, sim_trials))
+conv_adm <- conv_nonadm
+
+# 3. Populate all the Period Independent Variables  ----
+# ******************************************************
+
+# * 3.0. Profiles ----
+# ````````````````````
+
+# * * 3.0.1. Clock Stop Profiles  ----
+# ````````````````````````````````````
+if(df_param$value[df_param$variable=='csprof_type_nonadm']=='matrix'){
+  period_list <- df_param_matrix %>% 
+    filter(variable == 'csprof_nonadm') %>% 
+    arrange(period) %>% 
+    distinct(period) %>% 
+    .$period
+  for(p in 1:length(period_list)){
+    # Calculate the from and to period that we will block fill
+    from_period <- period_list[p]
+    to_period <- period_list[p+1]-1
+    if(is.na(to_period)){
+      to_period <- sim_periods
+    }
+    vec_values <- df_param_matrix %>% filter(variable == 'top_adm' & period == from_period) %>% 
+      select(-c(sim_code, variable, period)) %>% 
+      t() %>% 
+      as.vector()
+    # Add row by row to array NB: no need to add one to the period row one refers to period 1
+    for(r in from_period:to_period){
+      top_adm[r,] <- vec_values  
+    }
+  }
+} else if(df_param %>% filter(variable == 'top_type_adm') %>% .$value == 'dist'){
+  # Create and tabulate the take-off profile from the param dist variables and write to the relevant line of the array (as defined by period)
+  period_list <- df_param_dist %>% 
+    filter(variable == 'top_shape1_adm') %>% 
+    arrange(period) %>% 
+    distinct(period) %>% 
+    .$period
+  for(p in 1:length(period_list)){
+    # Get the shape parameters
+    shape_param_1 <- df_param_dist %>% filter(variable == 'top_shape1_adm' & period == period_list[p]) %>% .$value
+    shape_param_2 <- df_param_dist %>% filter(variable == 'top_shape2_adm' & period == period_list[p]) %>% .$value
+    
+    # Calculate the from and to period that we will block fill
+    from_period <- period_list[p]
+    to_period <- period_list[p+1]-1
+    if(is.na(to_period)){
+      to_period <- sim_periods
+    }
+    # Create the take-off profile
+    vec_values <- dbetabinom.ab(x = 0:sim_bins, 
+                                size = sim_bins, 
+                                shape1 = shape_param_1, 
+                                shape2 = shape_param_2)
+    # Add row by row to array NB: no need to add one to the period row one refers to period 1
+    for(r in from_period:to_period){
+      top_adm[r,] <- vec_values  
+    }
+  }
+}
+
+# * * * 3.0.1.1. Non-Admitted ----
+# ````````````````````````````````
+# * * * 3.0.1.2. Admitted ----
+# ````````````````````````````
+
+# * * 3.0.2. Demand Profiles  ----
+# ````````````````````````````````
+# * * * 3.0.2.1. Non-Admitted ----
+# ````````````````````````````````
+# * * * 3.0.2.2. Admitted ----
+# ````````````````````````````
+
+# * * 3.0.3. Removal Other Than Treatment (ROTT) Profiles  ----
+# `````````````````````````````````````````````````````````````
+# * * * 3.0.3.1. Non-Admitted ----
+# ````````````````````````````````
+# * * * 3.0.3.2. Admitted ----
+# ````````````````````````````
+
+
+# * * 3.1. Waiting List ----
+# ``````````````````````````
+
+# * * * 3.1.1. Non-Admitted ----
+# ``````````````````````````````
+# Check to see how the non-admitted waiting list is initiated
+if(df_param$value[df_param$variable=='wl_type_nonadm']=='matrix'){
+  # If it is as a matrix then read the waiting list from the param matrix into 
+  # the first line of the waiting list array (period 0) for each trial
+  wl_nonadm[1,,] <- df_param_matrix %>% 
+    filter(variable == 'wl_nonadm' & period == 0) %>%
+    select(-c(sim_code, variable, period)) %>% 
+    t() %>% 
+    as.vector()
+} else if(df_param$value[df_param$variable=='wl_type_nonadm']=='dist'){
+  # If it is as a distribution then read in the size and shape parameters and
+  # synthesise and insert into the first line of the waiting list array (period 0) 
+  # for each trial
+  waiting_list_size <- df_param_dist$value[df_param_dist$variable=='wl_size_nonadm']
+  shape_param_1 <- df_param_dist$value[df_param_dist$variable=='wl_shape1_nonadm']
+  shape_param_2 <- df_param_dist$value[df_param_dist$variable=='wl_shape2_nonadm']
+  wl_nonadm[1,,] <- tabulate(bin = rbetabinom.ab(n = waiting_list_size, 
+                                                 size = bins, 
+                                                 shape1 = shape_param_1, 
+                                                 shape2 = shape_param_2),
+                             nbins = sim_bins+1)
+}
+
+# * * * 3.1.2. Admitted ----
+# ``````````````````````````
+# Check to see how the non-admitted waiting list is initiated
+if(df_param$value[df_param$variable=='wl_type_adm']=='matrix'){
+  # If it is as a matrix then read the waiting list from the param matrix into 
+  # the first line of the waiting list array (period 0) for each trial
+  wl_adm[1,,] <- df_param_matrix %>% 
+    filter(variable == 'wl_adm' & period == 0) %>%
+    select(-c(sim_code, variable, period)) %>% 
+    t() %>% 
+    as.vector()
+} else if(df_param$value[df_param$variable=='wl_type_adm']=='dist'){
+  # If it is as a distribution then read in the size and shape parameters and
+  # synthesise and insert into the first line of the waiting list array (period 0) 
+  # for each trial
+  waiting_list_size <- df_param_dist$value[df_param_dist$variable=='wl_size_adm']
+  shape_param_1 <- df_param_dist$value[df_param_dist$variable=='wl_shape1_adm']
+  shape_param_2 <- df_param_dist$value[df_param_dist$variable=='wl_shape2_adm']
+  wl_adm[1,,] <- tabulate(bin = rbetabinom.ab(n = waiting_list_size, 
+                                              size = bins, 
+                                              shape1 = shape_param_1, 
+                                              shape2 = shape_param_2),
+                          nbins = sim_bins+1)
+}
+
+# * * 3.2. Clock Stop ----
+# ````````````````````````
+# The clock stop variables are period dependent and with therefore be populated
+# during the simulation period steps
+
+# * * 3.3. Demand ----
+
+
+# * * 3.4. Capacity ----
+# * * 3.5. Non-RTT Activity ----
+# * * 3.6. Removal Other Than Treatment (ROTT) ----
+# * * 3.7. Conversions ----
+
+# * 2.3. Clock Stop Variables ----
+# * * 2.3.1. Non-Admitted ----
+# * * 2.3.2. Admitted ----
+
 
 # Simulation outputs
 # ******************
