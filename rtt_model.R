@@ -50,7 +50,7 @@ fnCreateProfileFromActualDistribution <- function(profile_type_var){
                    apply(
                      X = df_periods, 
                      MARGIN = 1, 
-                     FUN = function(X){
+                     function(X){
                        # Get the row of data for the profile for the indicated period and
                        # ignoring the first two columns (variable and period) create a vector of
                        # values
@@ -92,7 +92,7 @@ fnCreateProfileFromSyntheticDistribution <- function(profile_type_var){
                    apply(
                      X = df_periods, 
                      MARGIN = 1, 
-                     FUN = function(X){
+                     function(X){
                        # Get the row of data for the profile for the indicated period and
                        # ignoring the first two columns (variable and period) create a vector of
                        # values
@@ -397,8 +397,8 @@ df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$var
   mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
 
 # Replicate the entries to create the parameter array columns
-v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['mean'], X['to']-X['from']+1)})))
-v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['sd'], X['to']-X['from']+1)})))
+v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['mean'], X['to']-X['from']+1)})))
+v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['sd'], X['to']-X['from']+1)})))
 # Insert the columns into the blank parameter array
 dem_param_nonadm[,1] <- v_mean
 dem_param_nonadm[,2] <- v_sd
@@ -416,8 +416,8 @@ df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$var
   mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
 
 # Replicate the entries to create the parameter array columns
-v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['mean'], X['to']-X['from']+1)})))
-v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['sd'], X['to']-X['from']+1)})))
+v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['mean'], X['to']-X['from']+1)})))
+v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['sd'], X['to']-X['from']+1)})))
 # Insert the columns into the blank parameter array
 dem_param_adm[,1] <- v_mean
 dem_param_adm[,2] <- v_sd
@@ -428,6 +428,7 @@ dem_vol_adm[,] <- round(rnorm(n = sim_periods * sim_trials,
                               sd = dem_param_adm[,2]))
 
 # * * 2.3.4. Capacity ----
+# ````````````````````````
 # Populate the capacity parameter and volume arrays from the input
 
 # * * * 2.3.4.1. Non-Admitted ----
@@ -438,8 +439,8 @@ df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$var
   mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
 
 # Replicate the entries to create the parameter array columns
-v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['mean'], X['to']-X['from']+1)})))
-v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['sd'], X['to']-X['from']+1)})))
+v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['mean'], X['to']-X['from']+1)})))
+v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['sd'], X['to']-X['from']+1)})))
 # Insert the columns into the blank parameter array
 cap_param_nonadm[,1] <- v_mean
 cap_param_nonadm[,2] <- v_sd
@@ -457,8 +458,8 @@ df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$var
   mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
 
 # Replicate the entries to create the parameter array columns
-v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['mean'], X['to']-X['from']+1)})))
-v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['sd'], X['to']-X['from']+1)})))
+v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['mean'], X['to']-X['from']+1)})))
+v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['sd'], X['to']-X['from']+1)})))
 # Insert the columns into the blank parameter array
 cap_param_adm[,1] <- v_mean
 cap_param_adm[,2] <- v_sd
@@ -472,9 +473,109 @@ cap_vol_adm[,] <- round(rnorm(n = sim_periods * sim_trials,
 # ```````````````````````
 # Populate the non-RTT parameter and volume arrays from the input
 
+# * * * 2.3.5.1. Non-Admitted ----
+# Create a data frame of period from, period to, and probability
+df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='nonrtt_prob_nonadm'],
+                         prob = df_param_synthetic$value[df_param_synthetic$variable=='nonrtt_prob_nonadm']) %>%
+  mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
+
+# Replicate the entries to create the parameter array columns
+v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['prob'], X['to']-X['from']+1)})))
+# Insert the columns into the blank parameter array
+nonrtt_param_nonadm <- v_prob
+
+# Create the volume array for all the trials and periods
+nonrtt_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials, 
+                            size = cap_vol_nonadm, 
+                            prob = nonrtt_param_nonadm)
+
+# * * * 2.3.5.2. Admitted ----
+# Create a data frame of period from, period to, and probability
+df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='nonrtt_prob_adm'],
+                         prob = df_param_synthetic$value[df_param_synthetic$variable=='nonrtt_prob_adm']) %>%
+  mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
+
+# Replicate the entries to create the parameter array columns
+v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['prob'], X['to']-X['from']+1)})))
+# Insert the columns into the blank parameter array
+nonrtt_param_adm <- v_prob
+
+# Create the volume array for all the trials and periods
+nonrtt_vol_adm[,] <- rbinom(n = sim_periods*sim_trials, 
+                            size = cap_vol_adm, 
+                            prob = nonrtt_param_adm)
 
 # * * 2.3.6. ROTT ----
+# Populate the ROTT parameter and volume arrays from the input, 
+# the ROTT results are time dependent so nothing to calculate here
+
+# * * * 2.3.6.1. Non-Admitted ----
+# Create a data frame of period from, period to, and probability
+df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='rott_prob_nonadm'],
+                         prob = df_param_synthetic$value[df_param_synthetic$variable=='rott_prob_nonadm']) %>%
+  mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
+
+# Replicate the entries to create the parameter array columns
+v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['prob'], X['to']-X['from']+1)})))
+# Insert the columns into the blank parameter array
+rott_param_nonadm <- v_prob
+
+# Create the volume array for all the trials and periods
+rott_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials, 
+                             size = cap_vol_nonadm, 
+                             prob = rott_param_nonadm)
+
+# * * * 2.3.6.2. Admitted ----
+# Create a data frame of period from, period to, and probability
+df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='rott_prob_adm'],
+                         prob = df_param_synthetic$value[df_param_synthetic$variable=='rott_prob_adm']) %>%
+  mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
+
+# Replicate the entries to create the parameter array columns
+v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['prob'], X['to']-X['from']+1)})))
+# Insert the columns into the blank parameter array
+rott_param_adm <- v_prob
+
+# Create the volume array for all the trials and periods
+rott_vol_adm[,] <- rbinom(n = sim_periods*sim_trials, 
+                          size = cap_vol_adm, 
+                          prob = rott_param_adm)
+
 # * * 2.3.7. Conversions ----
+# Populate the conversion parameter and volume arrays from the input, 
+# the ROTT results are time dependent so nothing to calculate here
+
+# * * * 2.3.7.1. Non-Admitted ----
+# Create a data frame of period from, period to, and probability
+df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='conv_prob_nonadm'],
+                         prob = df_param_synthetic$value[df_param_synthetic$variable=='conv_prob_nonadm']) %>%
+  mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
+
+# Replicate the entries to create the parameter array columns
+v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['prob'], X['to']-X['from']+1)})))
+# Insert the columns into the blank parameter array
+conv_param_nonadm <- v_prob
+
+# Create the volume array for all the trials and periods
+conv_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials, 
+                             size = cap_vol_nonadm, 
+                             prob = conv_param_nonadm)
+
+# * * * 2.3.7.2. Admitted ----
+# Create a data frame of period from, period to, and probability
+df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='conv_prob_adm'],
+                         prob = df_param_synthetic$value[df_param_synthetic$variable=='conv_prob_adm']) %>%
+  mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
+
+# Replicate the entries to create the parameter array columns
+v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['prob'], X['to']-X['from']+1)})))
+# Insert the columns into the blank parameter array
+conv_param_adm <- v_prob
+
+# Create the volume array for all the trials and periods
+conv_vol_adm[,] <- rbinom(n = sim_periods*sim_trials, 
+                          size = cap_vol_adm, 
+                          prob = conv_param_adm)
 
 
 
