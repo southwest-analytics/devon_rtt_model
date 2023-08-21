@@ -42,7 +42,7 @@ Variables ending in `nonadm` refer to the **non-admitted pathway** and those end
 - `rottprof_param_nonadm` & `demprof_param_adm` - If the `rottprof_type_...` is `synthetic` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the ROTT profile for each simulation period.
 - `rottprof_nonadm` & `rottprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the ROTT profile in bins for each simulation period.
 
-### Conversions Profile variables
+### Conversion Profile variables
 - `convprof_type_nonadm` & `convprof_type_adm` - Type of conversion profile input, either `actual` (read direct from input file) or `synthetic` (created from beta-binomial distribution using parameters supplied in input file)
 - `convprof_param_nonadm` & `convprof_param_adm` - If the `rottprof_type_...` is `synthetic` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the conversion profile for each simulation period.
 - `convprof_nonadm` & `convprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the conversion profile in bins for each simulation period.
