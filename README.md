@@ -1,17 +1,19 @@
 # Devon Referral to Treatment (RTT) Model in R
 
-### Author: Richard Blackwell
-### Email: richard.blackwell@swahsn.com
-### Date: 2023-08-04
-
-## Variables
+#### Author: Richard Blackwell
+#### Email: richard.blackwell@swahsn.com
+#### Date: 2023-08-04
 
 ----
+
+## Variables
 
 ### General: 
 Variables ending in `nonadm` refer to the **non-admitted pathway** and those ending in `adm` refer to the **admitted pathway**. A variable displayed as `variable_name_...` in this README signifies that both the `variable_name_nonadm` and `variable_name_adm` variables are being referred to.
 
-### Simulation variables
+----
+
+## Simulation variables
 
 - `sim_name` - Name of the simulation for use in output directory and filenames.
 - `sim_trials` - Number of simulation runs.
@@ -20,6 +22,29 @@ Variables ending in `nonadm` refer to the **non-admitted pathway** and those end
 - `sim_time_unit` - Unit of time for the model i.e. year, month, week, day.
 
 **NB: the same unit of time will be used across the entire model, i.e. if we use week then the demand is expressed in weekly demand, the capacity in weekly capacity, the waiting list bins as weekly bins.**
+
+----
+
+## Profile Variables
+
+### Clock Stop Profile variables
+- `csprof_type_nonadm` & `csprof_type_adm` - Type of clock stop profile input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file)
+- `csprof_param_nonadm` & `csprof_param_adm` - If the `csprof_type_...` is `dist` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the clock stop profile for each simulation period.
+- `csprof_nonadm` & `csprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the clock stop profile in bins for each simulation period.
+
+### Demand Profile variables
+- `demprof_type_nonadm` & `demprof_type_adm` - Type of demand profile input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file)
+- `demprof_param_nonadm` & `demprof_param_adm` - If the `demprof_type_...` is `dist` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the demand profile for each simulation period.
+- `demprof_nonadm` & `demprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the demand profile in bins for each simulation period.
+
+### Removal Other Than Treatment (ROTT) Profile variables
+- `rottprof_type_nonadm` & `rottprof_type_adm` - Type of ROTT profile input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file)
+- `rottprof_param_nonadm` & `demprof_param_adm` - If the `rottprof_type_...` is `dist` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the ROTT profile for each simulation period.
+- `rottprof_nonadm` & `rottprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the ROTT profile in bins for each simulation period.
+
+----
+
+## Process Variables
 
 ### Waiting List variables
 - `wl_type_nonadm` & `wl_type_adm` - Type of waiting list input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file).
@@ -53,25 +78,6 @@ Variables ending in `nonadm` refer to the **non-admitted pathway** and those end
 - `conv_param_nonadm` & `conv_param_adm` - Array of dimension `[sim_periods]` in which to store the probability parameter for each simulation period used to create the `conv_vol_...` from a binominal distribution
 - `conv_vol_nonadm` & `conv_vol_adm` - Array of dimensions `[sim_periods, sim_trials]` used to store the conversion volume for the non-admitted (to admitted) and admitted (to non-admitted) pathways for each period and simulation run.
 - `conv_nonadm` & `conv_adm` - Array of dimensions `[sim_periods, sim_bins+1, sim_trials]` in which to store the conversion activity in bins for each simulation period and run.
-
-----
-
-### Profiles
-
-### Clock Stop Profile variables
-- `csprof_type_nonadm` & `csprof_type_adm` - Type of clock stop profile input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file)
-- `csprof_param_nonadm` & `csprof_param_adm` - If the `csprof_type_...` is `dist` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the clock stop profile for each simulation period.
-- `csprof_nonadm` & `csprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the clock stop profile in bins for each simulation period.
-
-### Demand Profile variables
-- `demprof_type_nonadm` & `demprof_type_adm` - Type of demand profile input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file)
-- `demprof_param_nonadm` & `demprof_param_adm` - If the `demprof_type_...` is `dist` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the demand profile for each simulation period.
-- `demprof_nonadm` & `demprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the demand profile in bins for each simulation period.
-
-### Removal Other Than Treatment (ROTT) Profile variables
-- `rottprof_type_nonadm` & `rottprof_type_adm` - Type of ROTT profile input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file)
-- `rottprof_param_nonadm` & `demprof_param_adm` - If the `rottprof_type_...` is `dist` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the ROTT profile for each simulation period.
-- `rottprof_nonadm` & `rottprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the ROTT profile in bins for each simulation period.
 
 ----
 
