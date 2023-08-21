@@ -38,3 +38,7 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 README.html
+<<<<<<< HEAD
+=======
+README.pdf
+>>>>>>> f8a25b555e7c6978562087fde19c618b1dffc8ce

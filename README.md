@@ -4,15 +4,16 @@
 #### Email: richard.blackwell@swahsn.com
 #### Date: 2023-08-04
 
-## Structure
+----
+
+## Variables
+
+### General: 
+Variables ending in `nonadm` refer to the **non-admitted pathway** and those ending in `adm` refer to the **admitted pathway**. A variable displayed as `variable_name_...` in this README signifies that both the `variable_name_nonadm` and `variable_name_adm` variables are being referred to.
 
 ----
 
-### General
-
-Variables ending in `nonadm` refer to the **non-admitted pathway** and those ending in `adm` refer to the **admitted pathway**. A variable displayed as `variable_name_...` in this README signifies that both the `variable_name_nonadm` and `variable_name_adm` variables are being referred to.
-
-### Simulation variables
+## Simulation variables
 
 - `sim_name` - Name of the simulation for use in output directory and filenames.
 - `sim_trials` - Number of simulation runs.
@@ -24,26 +25,31 @@ Variables ending in `nonadm` refer to the **non-admitted pathway** and those end
 
 ----
 
-### **Profile variables**
+## Profile Variables
 
 ### Clock Stop Profile variables
-- `csprof_type_nonadm` & `csprof_type_adm` - Type of clock stop profile input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file)
-- `csprof_param_nonadm` & `csprof_param_adm` - If the `csprof_type_...` is `dist` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the clock stop profile for each simulation period.
+- `csprof_type_nonadm` & `csprof_type_adm` - Type of clock stop profile input, either `actual` (read direct from input file) or `synthetic` (created from beta-binomial distribution using parameters supplied in input file)
+- `csprof_param_nonadm` & `csprof_param_adm` - If the `csprof_type_...` is `synthetic` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the clock stop profile for each simulation period.
 - `csprof_nonadm` & `csprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the clock stop profile in bins for each simulation period.
 
 ### Demand Profile variables
-- `demprof_type_nonadm` & `demprof_type_adm` - Type of demand profile input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file)
-- `demprof_param_nonadm` & `demprof_param_adm` - If the `demprof_type_...` is `dist` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the demand profile for each simulation period.
+- `demprof_type_nonadm` & `demprof_type_adm` - Type of demand profile input, either `actual` (read direct from input file) or `synthetic` (created from beta-binomial distribution using parameters supplied in input file)
+- `demprof_param_nonadm` & `demprof_param_adm` - If the `demprof_type_...` is `synthetic` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the demand profile for each simulation period.
 - `demprof_nonadm` & `demprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the demand profile in bins for each simulation period.
 
 ### Removal Other Than Treatment (ROTT) Profile variables
-- `rottprof_type_nonadm` & `rottprof_type_adm` - Type of ROTT profile input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file)
-- `rottprof_param_nonadm` & `demprof_param_adm` - If the `rottprof_type_...` is `dist` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the ROTT profile for each simulation period.
+- `rottprof_type_nonadm` & `rottprof_type_adm` - Type of ROTT profile input, either `actual` (read direct from input file) or `synthetic` (created from beta-binomial distribution using parameters supplied in input file)
+- `rottprof_param_nonadm` & `demprof_param_adm` - If the `rottprof_type_...` is `synthetic` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the ROTT profile for each simulation period.
 - `rottprof_nonadm` & `rottprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the ROTT profile in bins for each simulation period.
+
+### Conversion Profile variables
+- `convprof_type_nonadm` & `convprof_type_adm` - Type of conversion profile input, either `actual` (read direct from input file) or `synthetic` (created from beta-binomial distribution using parameters supplied in input file)
+- `convprof_param_nonadm` & `convprof_param_adm` - If the `rottprof_type_...` is `synthetic` this is an array of `[sim_period, 2]` in which to store shape parameter 1 (also know as $\alpha$ ) and shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution of the conversion profile for each simulation period.
+- `convprof_nonadm` & `convprof_adm` - Array of dimensions `[sim_periods, sim_bins+1]` in which to store the conversion profile in bins for each simulation period.
 
 ----
 
-### **Variables**
+## Process Variables
 
 ### Waiting List variables
 - `wl_type_nonadm` & `wl_type_adm` - Type of waiting list input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file).
@@ -80,7 +86,7 @@ Variables ending in `nonadm` refer to the **non-admitted pathway** and those end
 
 ----
 
-### **Simplified Flowchart**
+### Simplified Flowchart
 
 ```mermaid
 flowchart TB
