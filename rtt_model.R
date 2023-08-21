@@ -1,42 +1,131 @@
-## ---------------------------
-##
-## Script name: rtt_model.R 
-##
-## Purpose of script: Referral To Treatment (RTT) simulation for a single 
-##                    specialty for both admitted and non-admitted pathways over
-##                    a given period for a given number of trials.
-##
-## Author: Richard Blackwell
-##
-## Date Created: 2023-08-02
-##
-## Email: richard.blackwell@swahsn.com
-##
-## ---------------------------
-##
-## Notes: The README.md in the git repo gives a more detailed explanation of the
-##        simulation model and parameters
-##
-## ---------------------------
+## ************************************************************************* ##
+##                                                                           ##
+## Script name: rtt_model.R                                                  ##
+##                                                                           ##
+## Purpose of script: Referral To Treatment (RTT) simulation for a single    ##
+##                    specialty for both admitted and non-admitted pathways  ##
+##                    over a given period for a given number of trials.      ##
+##                                                                           ##
+## Author: Richard Blackwell                                                 ##
+##                                                                           ##
+## Date Created: 2023-08-02                                                  ##
+##                                                                           ##
+## Email: richard.blackwell@swahsn.com                                       ##
+##                                                                           ##
+## Notes: The README.md in the git repo gives a more detailed explanation    ##
+##        of the simulation model and parameters                             ##
+##                                                                           ##
+## ************************************************************************* ##
 
+# 0. Load Libraries and Define Functions ----
+# *******************************************
+
+# * 0.1. Libraries ----
+# `````````````````````
 library(tidyverse)
 library(VGAM)
-library(ini)
 library(readxl)
-library(reshape2)
 
-# [DEVELOPMENT] This needs to be changed to command line argument input to aid 
-# automation for trusts
+# * 0.2. Functions ----
+# `````````````````````
+
+# Function to create a profile array from the supplied actual distribution 
+# for one or more periods
+fnCreateProfileFromActualDistribution <- function(profile_type_var){
+  # The profile_type_var needs to be changed to represent the profile var
+  # in the df_param_actual data frame
+  profile_var <- gsub('_type_', '_', profile_type_var)
+  # Get the entries for the profile variable from the df_param_actual data frame
+  df <- df_param_actual[df_param_actual$variable == profile_var,]
+  # Read in from an actual distribution
+  # Get the 'from' and 'to' periods
+  df_periods <- data.frame(from = df$period) %>% 
+    mutate(to = lead(from, default = sim_periods+1)-1)
+  # Using apply and rbind create an array of dimensions [periods, bins+1] containing
+  # the supplied actual distributions
+  arr <- do.call('rbind', 
+                 # Cast as a list
+                 list(
+                   # Apply across each row of the df_periods dataframe
+                   apply(
+                     X = df_periods, 
+                     MARGIN = 1, 
+                     FUN = function(X){
+                       # Get the row of data for the profile for the indicated period and
+                       # ignoring the first two columns (variable and period) create a vector of
+                       # values
+                       v <- df[df$period == unname(X['from']), 3:(sim_bins+3)] %>% 
+                         unname() %>% t() %>% c()
+                       # Calculate the number of periods to fill with this vector
+                       periods <- as.integer(X['to'] - X['from'] + 1)
+                       # Duplicate the vector for each of the periods
+                       v <- rep(v, periods)
+                       return(v)
+                     })))
+  dim(arr) <- c(sim_bins+1, sim_periods)
+  arr <- t(arr)
+  return(arr)
+}
+
+# Function to create a profile array from the synthetic distribution 
+# for one or more periods
+fnCreateProfileFromSyntheticDistribution <- function(profile_type_var){
+  # The profile_type_var needs to be changed to represent the shape1 and shape2
+  # entries in the df_param_synthetic data frame
+  profile_shape1_var <- gsub('_type_', '_shape1_', profile_type_var)
+  profile_shape2_var <- gsub('_type_', '_shape2_', profile_type_var)
+  # Create a data frame consisting of 'from' period, 'to' period, 
+  # 'shape1' parameter and 'shape2' parameter which will be used to create the
+  # synthesised distribution. The assumption is that both shape1 and shape2 
+  # have the same period entries.
+  # [DEVELOPMENT: This ought to be validated]
+  df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable==profile_shape1_var],
+                           shape1 = df_param_synthetic$value[df_param_synthetic$variable==profile_shape1_var],
+                           shape2 = df_param_synthetic$value[df_param_synthetic$variable==profile_shape2_var]) %>% 
+    mutate(to = lead(from, default = sim_periods+1)-1, .after = 'from')
+  # Using apply and rbind create an array of dimensions [periods, bins+1] containing
+  # the synthesised distributions
+  arr <- do.call('rbind', 
+                 # Cast as a list
+                 list(
+                   # Apply across each row of the df_periods dataframe
+                   apply(
+                     X = df_periods, 
+                     MARGIN = 1, 
+                     FUN = function(X){
+                       # Get the row of data for the profile for the indicated period and
+                       # ignoring the first two columns (variable and period) create a vector of
+                       # values
+                       v <- dbetabinom.ab(x = 0:sim_bins,
+                                          size = sim_bins,
+                                          shape1 = unname(X['shape1']),
+                                          shape2 = unname(X['shape2']))
+                       # Calculate the number of periods to fill with this vector
+                       periods <- as.integer(X['to'] - X['from'] + 1)
+                       # Duplicate the vector for each of the periods
+                       v <- rep(v, periods)
+                       return(v)
+                     })))
+  dim(arr) <- c(sim_bins+1, sim_periods)
+  arr <- t(arr)
+  return(arr)
+}
+
+
+# 1. Initialise Variables ----
+# ****************************
+
+# [DEVELOPMENT: This ought to be changed to command line argument input to aid automation for trusts]
 inputfile <- './input/example_simulation.xlsx'
 
 # Initiate timer
 dtStart <- Sys.time()
 
-# 1. Initialise Simulation Variables ----
-# ***************************************
+# * 1.1. Simulation Variables ----
+# ````````````````````````````````
 df_param <- read_excel(path = inputfile, sheet = 'param')
-df_param_dist <- read_excel(path = inputfile, sheet = 'param_dist')
-df_param_matrix <- read_excel(path = inputfile, sheet = 'param_matrix')
+df_param_synthetic <- read_excel(path = inputfile, sheet = 'param_synthetic')
+df_param_actual <- read_excel(path = inputfile, sheet = 'param_actual')
 
 sim_name <- df_param$value[df_param$variable=='name']
 sim_trials <- as.integer(df_param$value[df_param$variable=='trials'])
@@ -47,6 +136,377 @@ sim_bins <- as.integer(df_param$value[df_param$variable=='bins'])
 outputdir <- paste0(df_param$value[df_param$variable=='base_outdir'], '\\',
                     sim_name)
 dir.create(path = outputdir, showWarnings = FALSE, recursive = TRUE)
+
+# * 1.2. Profile Variables ----
+# `````````````````````````````
+# * * 1.2.1. Clock Stops ----
+# Create the 2d arrays with dimensions [1:periods, 0:bins] for the profiles
+csprof_nonadm <- array(data = rep(0, sim_periods * (sim_bins+1)),
+                       dim = c(sim_periods, (sim_bins+1)))
+csprof_adm <- csprof_nonadm
+
+# * * 1.2.2. Demand ----
+# Create the 2d arrays with dimensions [1:period, 0:bins] for the profiles
+demprof_nonadm <- array(data = rep(0, sim_periods * (sim_bins+1)),
+                        dim = c(sim_periods, (sim_bins+1)))
+demprof_adm <- demprof_nonadm
+
+# * * 1.2.3. ROTT ----
+# Create the 2d arrays with dimensions [1:period, 0:bins] for the profiles
+rottprof_nonadm <- array(data = rep(0, sim_periods * (sim_bins+1)),
+                         dim = c(sim_periods, (sim_bins+1)))
+rottprof_adm <- rottprof_nonadm
+
+# * * 1.2.4. Conversion ----
+# Create the 2d arrays with dimensions [1:period, 0:bins] for the profiles
+convprof_nonadm <- array(data = rep(0, sim_periods * (sim_bins+1)),
+                         dim = c(sim_periods, (sim_bins+1)))
+convprof_adm <- convprof_nonadm
+
+# * 1.3. Process Variables ----
+# `````````````````````````````
+# * * 1.3.1. Waiting List ----
+# Create the 3d arrays with dimensions [0:periods, 0:bins, 1:trials] for the results
+wl_nonadm <- array(data = rep(0, (sim_periods+1) * (sim_bins+1) * sim_trials),
+                   dim = c((sim_periods+1), (sim_bins+1), sim_trials))
+wl_adm <- wl_nonadm
+
+# * * 1.3.2. Clock Stops ----
+# Create the 3d arrays with dimensions [1:periods, 0:bins, 1:trials] for the results
+cs_nonadm <- array(data = rep(0, sim_periods * (sim_bins+1) * sim_trials),
+                   dim = c(sim_periods, (sim_bins+1), sim_trials))
+cs_adm <- cs_nonadm
+
+# * * 1.3.3. Demand ----
+# Create the 2d arrays with dimensions [1:periods, 2] for the parameters
+dem_param_nonadm <- array(data = rep(0, sim_periods * 2),
+                          dim = c(sim_periods, 2))
+dem_param_adm <- dem_param_nonadm
+# Create the 2d arrays with dimensions [1:periods, 1:trails] for the volumes 
+dem_vol_nonadm <- array(data = rep(0, sim_periods * sim_trials),
+                        dim = c(sim_periods, sim_trials))
+dem_vol_adm <- dem_vol_nonadm
+# Create the 3d arrays with dimensions [1:periods, 0:bins, 1:trials] for the results
+dem_nonadm <- array(data = rep(0, sim_periods * (sim_bins+1) * sim_trials),
+                    dim = c(sim_periods, (sim_bins+1), sim_trials))
+dem_adm <- dem_nonadm
+
+# * * 1.3.4. Capacity ----
+# Create the 2d arrays with dimensions [1:periods, 2] for the parameters
+cap_param_nonadm <- array(data = rep(0, sim_periods * 2),
+                          dim = c(sim_periods, 2))
+cap_param_adm <- cap_param_nonadm
+# Create the 2d arrays with dimensions [1:periods, 1:trails] for the volumes 
+cap_vol_nonadm <- array(data = rep(0, sim_periods * sim_trials),
+                        dim = c(sim_periods, sim_trials))
+cap_vol_adm <- cap_vol_nonadm
+
+# * * 1.3.5. Non-RTT ----
+# Create the 1d arrays with dimensions [1:periods] for the parameters
+nonrtt_param_nonadm <- array(data = rep(0, sim_periods),
+                             dim = c(sim_periods))
+nonrtt_param_adm <- nonrtt_param_nonadm
+# Create the 2d arrays with dimensions [1:periods, 1:trails] for the volumes 
+nonrtt_vol_nonadm <- array(data = rep(0, sim_periods * sim_trials),
+                           dim = c(sim_periods, sim_trials))
+nonrtt_vol_adm <- nonrtt_vol_nonadm
+
+# * * 1.3.6. ROTT ----
+# Create the 1d arrays with dimensions [1:periods] for the parameters
+rott_param_nonadm <- array(data = rep(0, sim_periods),
+                           dim = c(sim_periods))
+rott_param_adm <- rott_param_nonadm
+# Create the 2d arrays with dimensions [1:periods, 1:trails] for the volumes 
+rott_vol_nonadm <- array(data = rep(0, sim_periods * sim_trials),
+                         dim = c(sim_periods, sim_trials))
+rott_vol_adm <- rott_vol_nonadm
+# Create the 3d arrays with dimensions [1:periods, 0:bins, 1:trials] for the results
+rott_nonadm <- array(data = rep(0, sim_periods * (sim_bins+1) * sim_trials),
+                     dim = c(sim_periods, (sim_bins+1), sim_trials))
+rott_adm <- rott_nonadm
+
+# * * 1.3.7. Conversions ----
+# Create the 1d arrays with dimensions [1:periods] for the parameters
+conv_param_nonadm <- array(data = rep(0, sim_periods),
+                           dim = c(sim_periods))
+conv_param_adm <- conv_param_nonadm
+# Create the 2d arrays with dimensions [1:periods, 1:trails] for the volumes 
+conv_vol_nonadm <- array(data = rep(0, sim_periods * sim_trials),
+                         dim = c(sim_periods, sim_trials))
+conv_vol_adm <- conv_vol_nonadm
+# Create the 3d arrays with dimensions [1:periods, 0:bins, 1:trials] for the results
+conv_nonadm <- array(data = rep(0, sim_periods * (sim_bins+1) * sim_trials),
+                     dim = c(sim_periods, (sim_bins+1), sim_trials))
+conv_adm <- conv_nonadm
+
+# * 2.1. Populate Time Independent Variables ----
+# ```````````````````````````````````````````````
+# * 2.2. Profile Variables ----
+# `````````````````````````````
+
+# * * 2.2.1. Clock Stops ----
+# ```````````````````````````
+# Create the clock stop profiles from either actual or synthesised distributions
+
+# * * * 2.2.1.1. Non-Admitted ----
+if(df_param$value[df_param$variable=='csprof_type_nonadm']=='actual'){
+  # Read in from an actual distribution
+  csprof_nonadm <- fnCreateProfileFromActualDistribution(profile_type_var = 'csprof_type_nonadm')
+} else if(df_param$value[df_param$variable=='csprof_type_nonadm']=='synthetic'){
+  # Create from a synthetic distribution
+  csprof_nonadm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'csprof_type_nonadm')
+}
+
+# * * * 2.2.1.2. Admitted ----
+# Create the clock stop profile from either an actual or synthesised distribution or a synthetic
+if(df_param$value[df_param$variable=='csprof_type_adm']=='actual'){
+  # Read in from an actual distribution
+  csprof_adm <- fnCreateProfileFromActualDistribution(profile_type_var = 'csprof_type_adm')
+} else if(df_param$value[df_param$variable=='csprof_type_adm']=='synthetic'){
+  # Create from a synthetic distribution
+  csprof_adm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'csprof_type_adm')
+}
+
+# * * 2.2.2. Demand ----
+# ``````````````````````
+# Create the demand profiles from either actual or synthesised distributions
+
+# * * * 2.2.2.1. Non-Admitted ----
+if(df_param$value[df_param$variable=='demprof_type_nonadm']=='actual'){
+  # Read in from an actual distribution
+  demprof_nonadm <- fnCreateProfileFromActualDistribution(profile_type_var = 'demprof_type_nonadm')
+} else if(df_param$value[df_param$variable=='demprof_type_nonadm']=='synthetic'){
+  # Create from a synthetic distribution
+  demprof_nonadm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'demprof_type_nonadm')
+}
+
+# * * * 2.2.2.2. Admitted ----
+if(df_param$value[df_param$variable=='demprof_type_adm']=='actual'){
+  # Read in from an actual distribution
+  demprof_adm <- fnCreateProfileFromActualDistribution(profile_type_var = 'demprof_type_adm')
+} else if(df_param$value[df_param$variable=='demprof_type_adm']=='synthetic'){
+  # Create from a synthetic distribution
+  demprof_adm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'demprof_type_adm')
+}
+
+# * * 2.2.3. ROTT ----
+# ``````````````````````
+# Create the ROTT profiles from either actual or synthesised distributions
+
+# * * * 2.2.3.1. Non-Admitted ----
+if(df_param$value[df_param$variable=='rottprof_type_nonadm']=='actual'){
+  # Read in from an actual distribution
+  rottprof_nonadm <- fnCreateProfileFromActualDistribution(profile_type_var = 'rottprof_type_nonadm')
+} else if(df_param$value[df_param$variable=='rottprof_type_nonadm']=='synthetic'){
+  # Create from a synthetic distribution
+  rottprof_nonadm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'rottprof_type_nonadm')
+}
+
+# * * * 2.2.3.2. Admitted ----
+if(df_param$value[df_param$variable=='rottprof_type_adm']=='actual'){
+  # Read in from an actual distribution
+  rottprof_adm <- fnCreateProfileFromActualDistribution(profile_type_var = 'rottprof_type_adm')
+} else if(df_param$value[df_param$variable=='rottprof_type_adm']=='synthetic'){
+  # Create from a synthetic distribution
+  rottprof_adm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'rottprof_type_adm')
+}
+
+# * * 2.2.4. Conversion ----
+# ``````````````````````````
+# Create the conversion profiles from either actual or synthesised distributions
+
+# * * * 2.2.4.1. Non-Admitted ----
+if(df_param$value[df_param$variable=='convprof_type_nonadm']=='actual'){
+  # Read in from an actual distribution
+  convprof_nonadm <- fnCreateProfileFromActualDistribution(profile_type_var = 'convprof_type_nonadm')
+} else if(df_param$value[df_param$variable=='convprof_type_nonadm']=='synthetic'){
+  # Create from a synthetic distribution
+  convprof_nonadm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'convprof_type_nonadm')
+}
+
+# * * * 2.2.4.2. Admitted ----
+if(df_param$value[df_param$variable=='convprof_type_adm']=='actual'){
+  # Read in from an actual distribution
+  convprof_adm <- fnCreateProfileFromActualDistribution(profile_type_var = 'convprof_type_adm')
+} else if(df_param$value[df_param$variable=='convprof_type_adm']=='synthetic'){
+  # Create from a synthetic distribution
+  convprof_adm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'convprof_type_adm')
+}
+
+# * 2.3. Process Variables ----
+# `````````````````````````````
+
+# * * 2.3.1. Waiting List ----
+# ````````````````````````````
+# Create the initial (period=0) waiting list profiles from either actual or synthesised distributions
+# the rest of the waiting list is time dependent and will calculated in the period iteration
+
+# * * * 2.3.1.1. Non-Admitted ----
+if(df_param$value[df_param$variable=='wl_type_nonadm']=='actual'){
+  # Read the actual distribution into each trial at period 0 (row 1)
+  v <- df_param_actual[df_param_actual$variable=='wl_nonadm', 3:(sim_bins+3)] %>% 
+    unname() %>% t() %>% c()
+  wl_nonadm[1,,] <- v 
+} else if(df_param$value[df_param$variable=='wl_type_nonadm']=='synthetic'){
+  # Create a waiting list profile from a synthetic distribution
+  wl_size <- df_param_synthetic$value[df_param_synthetic$variable=='wl_size_nonadm']
+  wl_shape1 <- df_param_synthetic$value[df_param_synthetic$variable=='wl_shape1_nonadm']
+  wl_shape2 <- df_param_synthetic$value[df_param_synthetic$variable=='wl_shape2_nonadm']
+  v <- tabulate(bin = rbetabinom.ab(n = wl_size, 
+                                    size = sim_bins, 
+                                    shape1 = wl_shape1, 
+                                    shape2 = wl_shape2)+1,
+                nbins = sim_bins+1)
+  # Copy the synthesised distribution into each trial at period 0 (row 1)
+  wl_nonadm[1,,] <- v 
+}
+
+# * * * 2.3.1.2. Admitted ----
+if(df_param$value[df_param$variable=='wl_type_adm']=='actual'){
+  # Read the actual distribution into each trial at period 0 (row 1)
+  v <- df_param_actual[df_param_actual$variable=='wl_adm', 3:(sim_bins+3)] %>% 
+    unname() %>% t() %>% c()
+  wl_adm[1,,] <- v 
+} else if(df_param$value[df_param$variable=='wl_type_adm']=='synthetic'){
+  # Create a waiting list profile from a synthetic distribution
+  wl_size <- df_param_synthetic$value[df_param_synthetic$variable=='wl_size_adm']
+  wl_shape1 <- df_param_synthetic$value[df_param_synthetic$variable=='wl_shape1_adm']
+  wl_shape2 <- df_param_synthetic$value[df_param_synthetic$variable=='wl_shape2_adm']
+  v <- tabulate(bin = rbetabinom.ab(n = wl_size, 
+                                    size = sim_bins, 
+                                    shape1 = wl_shape1, 
+                                    shape2 = wl_shape2)+1,
+                nbins = sim_bins+1)
+  # Copy the synthesised distribution into each trial at period 0 (row 1)
+  wl_adm[1,,] <- v 
+}
+
+# * * 2.3.2. Clock Stops ----
+# ```````````````````````````
+# Clock stops are time dependent so nothing to calculate here
+
+# * * 2.3.3. Demand ----
+# ``````````````````````
+# Populate the demand parameter and volume arrays from the input
+
+# * * * 2.3.3.1. Non-Admitted ----
+# Create a data frame of period from, period to, mean and sd
+df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='dem_mean_nonadm'],
+                         mean = df_param_synthetic$value[df_param_synthetic$variable=='dem_mean_nonadm'],
+                         sd = df_param_synthetic$value[df_param_synthetic$variable=='dem_sd_nonadm']) %>%
+  mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
+
+# Replicate the entries to create the parameter array columns
+v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['mean'], X['to']-X['from']+1)})))
+v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['sd'], X['to']-X['from']+1)})))
+# Insert the columns into the blank parameter array
+dem_param_nonadm[,1] <- v_mean
+dem_param_nonadm[,2] <- v_sd
+
+# Create the volume array for all the trials and periods
+dem_vol_nonadm[,] <- round(rnorm(n = sim_periods * sim_trials,
+                           mean = dem_param_nonadm[,1], 
+                           sd = dem_param_nonadm[,2]))
+
+# * * * 2.3.3.2. Admitted ----
+# Create a data frame of period from, period to, mean and sd
+df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='dem_mean_adm'],
+                         mean = df_param_synthetic$value[df_param_synthetic$variable=='dem_mean_adm'],
+                         sd = df_param_synthetic$value[df_param_synthetic$variable=='dem_sd_adm']) %>%
+  mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
+
+# Replicate the entries to create the parameter array columns
+v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['mean'], X['to']-X['from']+1)})))
+v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['sd'], X['to']-X['from']+1)})))
+# Insert the columns into the blank parameter array
+dem_param_adm[,1] <- v_mean
+dem_param_adm[,2] <- v_sd
+
+# Create the volume array for all the trials and periods
+dem_vol_adm[,] <- round(rnorm(n = sim_periods * sim_trials,
+                              mean = dem_param_adm[,1], 
+                              sd = dem_param_adm[,2]))
+
+# * * 2.3.4. Capacity ----
+# Populate the capacity parameter and volume arrays from the input
+
+# * * * 2.3.4.1. Non-Admitted ----
+# Create a data frame of period from, period to, mean and sd
+df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='cap_mean_nonadm'],
+                         mean = df_param_synthetic$value[df_param_synthetic$variable=='cap_mean_nonadm'],
+                         sd = df_param_synthetic$value[df_param_synthetic$variable=='cap_sd_nonadm']) %>%
+  mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
+
+# Replicate the entries to create the parameter array columns
+v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['mean'], X['to']-X['from']+1)})))
+v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['sd'], X['to']-X['from']+1)})))
+# Insert the columns into the blank parameter array
+cap_param_nonadm[,1] <- v_mean
+cap_param_nonadm[,2] <- v_sd
+
+# Create the volume array for all the trials and periods
+cap_vol_nonadm[,] <- round(rnorm(n = sim_periods * sim_trials,
+                                 mean = cap_param_nonadm[,1], 
+                                 sd = cap_param_nonadm[,2]))
+
+# * * * 2.3.4.1. Admitted ----
+# Create a data frame of period from, period to, mean and sd
+df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='cap_mean_adm'],
+                         mean = df_param_synthetic$value[df_param_synthetic$variable=='cap_mean_adm'],
+                         sd = df_param_synthetic$value[df_param_synthetic$variable=='cap_sd_adm']) %>%
+  mutate(to = lead(from, default = (sim_periods+1))-1, .after = 'from')
+
+# Replicate the entries to create the parameter array columns
+v_mean <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['mean'], X['to']-X['from']+1)})))
+v_sd <- do.call('c',list(apply(X = df_periods, MARGIN = 1, FUN = function(X){rep(X['sd'], X['to']-X['from']+1)})))
+# Insert the columns into the blank parameter array
+cap_param_adm[,1] <- v_mean
+cap_param_adm[,2] <- v_sd
+
+# Create the volume array for all the trials and periods
+cap_vol_adm[,] <- round(rnorm(n = sim_periods * sim_trials,
+                              mean = cap_param_adm[,1], 
+                              sd = cap_param_adm[,2]))
+
+# * * 2.3.5. Non-RTT ----
+# ```````````````````````
+# Populate the non-RTT parameter and volume arrays from the input
+
+
+# * * 2.3.6. ROTT ----
+# * * 2.3.7. Conversions ----
+
+
+
+
+
+
+
+
+
+
+# * 2.1. Populate Time Independent Variables ----
+# ```````````````````````````````````````````````
+# * 2.2. Profile Variables ----
+# `````````````````````````````
+# * * 2.2.1. Clock Stops ----
+# * * 2.2.2. Demand ----
+# * * 2.2.3. ROTT ----
+# * * 2.2.4. Conversion ----
+#
+# * 2.3. Process Variables ----
+# `````````````````````````````
+# * * 2.3.1. Waiting List ----
+# * * 2.3.2. Clock Stops ----
+# * * 2.3.3. Demand ----
+# * * 2.3.4. Capacity ----
+# * * 2.3.5. Non-RTT ----
+# * * 2.3.6. ROTT ----
+# * * 2.3.7. Conversions ----
+
+
+# ----------------------------
+
 
 # Simulation outputs
 # ******************
