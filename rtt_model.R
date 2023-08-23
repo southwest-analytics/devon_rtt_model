@@ -64,6 +64,7 @@ fnCreateProfileFromActualDistribution <- function(profile_type_var){
                      })))
   dim(arr) <- c(sim_bins+1, sim_periods)
   arr <- t(arr)
+  arr <- arr / apply(arr, 1, sum)
   return(arr)
 }
 
@@ -239,16 +240,16 @@ conv_nonadm <- array(data = rep(0, sim_periods * (sim_bins+1) * sim_trials),
                      dim = c(sim_periods, (sim_bins+1), sim_trials))
 conv_adm <- conv_nonadm
 
-# * 2.1. Populate Time Independent Variables ----
-# ```````````````````````````````````````````````
-# * 2.2. Profile Variables ----
+# 2. Populate Time Independent Variables ----
+# *******************************************
+# * 2.1. Profile Variables ----
 # `````````````````````````````
 
-# * * 2.2.1. Clock Stops ----
+# * * 2.1.1. Clock Stops ----
 # ```````````````````````````
 # Create the clock stop profiles from either actual or synthesised distributions
 
-# * * * 2.2.1.1. Non-Admitted ----
+# * * * 2.1.1.1. Non-Admitted ----
 if(df_param$value[df_param$variable=='csprof_type_nonadm']=='actual'){
   # Read in from an actual distribution
   csprof_nonadm <- fnCreateProfileFromActualDistribution(profile_type_var = 'csprof_type_nonadm')
@@ -257,7 +258,7 @@ if(df_param$value[df_param$variable=='csprof_type_nonadm']=='actual'){
   csprof_nonadm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'csprof_type_nonadm')
 }
 
-# * * * 2.2.1.2. Admitted ----
+# * * * 2.1.1.2. Admitted ----
 # Create the clock stop profile from either an actual or synthesised distribution or a synthetic
 if(df_param$value[df_param$variable=='csprof_type_adm']=='actual'){
   # Read in from an actual distribution
@@ -267,11 +268,11 @@ if(df_param$value[df_param$variable=='csprof_type_adm']=='actual'){
   csprof_adm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'csprof_type_adm')
 }
 
-# * * 2.2.2. Demand ----
+# * * 2.1.2. Demand ----
 # ``````````````````````
 # Create the demand profiles from either actual or synthesised distributions
 
-# * * * 2.2.2.1. Non-Admitted ----
+# * * * 2.1.2.1. Non-Admitted ----
 if(df_param$value[df_param$variable=='demprof_type_nonadm']=='actual'){
   # Read in from an actual distribution
   demprof_nonadm <- fnCreateProfileFromActualDistribution(profile_type_var = 'demprof_type_nonadm')
@@ -280,7 +281,7 @@ if(df_param$value[df_param$variable=='demprof_type_nonadm']=='actual'){
   demprof_nonadm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'demprof_type_nonadm')
 }
 
-# * * * 2.2.2.2. Admitted ----
+# * * * 2.1.2.2. Admitted ----
 if(df_param$value[df_param$variable=='demprof_type_adm']=='actual'){
   # Read in from an actual distribution
   demprof_adm <- fnCreateProfileFromActualDistribution(profile_type_var = 'demprof_type_adm')
@@ -289,11 +290,11 @@ if(df_param$value[df_param$variable=='demprof_type_adm']=='actual'){
   demprof_adm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'demprof_type_adm')
 }
 
-# * * 2.2.3. ROTT ----
+# * * 2.1.3. ROTT ----
 # ``````````````````````
 # Create the ROTT profiles from either actual or synthesised distributions
 
-# * * * 2.2.3.1. Non-Admitted ----
+# * * * 2.1.3.1. Non-Admitted ----
 if(df_param$value[df_param$variable=='rottprof_type_nonadm']=='actual'){
   # Read in from an actual distribution
   rottprof_nonadm <- fnCreateProfileFromActualDistribution(profile_type_var = 'rottprof_type_nonadm')
@@ -302,7 +303,7 @@ if(df_param$value[df_param$variable=='rottprof_type_nonadm']=='actual'){
   rottprof_nonadm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'rottprof_type_nonadm')
 }
 
-# * * * 2.2.3.2. Admitted ----
+# * * * 2.1.3.2. Admitted ----
 if(df_param$value[df_param$variable=='rottprof_type_adm']=='actual'){
   # Read in from an actual distribution
   rottprof_adm <- fnCreateProfileFromActualDistribution(profile_type_var = 'rottprof_type_adm')
@@ -311,11 +312,11 @@ if(df_param$value[df_param$variable=='rottprof_type_adm']=='actual'){
   rottprof_adm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'rottprof_type_adm')
 }
 
-# * * 2.2.4. Conversion ----
+# * * 2.1.4. Conversion ----
 # ``````````````````````````
 # Create the conversion profiles from either actual or synthesised distributions
 
-# * * * 2.2.4.1. Non-Admitted ----
+# * * * 2.1.4.1. Non-Admitted ----
 if(df_param$value[df_param$variable=='convprof_type_nonadm']=='actual'){
   # Read in from an actual distribution
   convprof_nonadm <- fnCreateProfileFromActualDistribution(profile_type_var = 'convprof_type_nonadm')
@@ -324,7 +325,7 @@ if(df_param$value[df_param$variable=='convprof_type_nonadm']=='actual'){
   convprof_nonadm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'convprof_type_nonadm')
 }
 
-# * * * 2.2.4.2. Admitted ----
+# * * * 2.1.4.2. Admitted ----
 if(df_param$value[df_param$variable=='convprof_type_adm']=='actual'){
   # Read in from an actual distribution
   convprof_adm <- fnCreateProfileFromActualDistribution(profile_type_var = 'convprof_type_adm')
@@ -333,15 +334,15 @@ if(df_param$value[df_param$variable=='convprof_type_adm']=='actual'){
   convprof_adm <- fnCreateProfileFromSyntheticDistribution(profile_type_var = 'convprof_type_adm')
 }
 
-# * 2.3. Process Variables ----
+# * 2.2. Process Variables ----
 # `````````````````````````````
 
-# * * 2.3.1. Waiting List ----
+# * * 2.2.1. Waiting List ----
 # ````````````````````````````
 # Create the initial (period=0) waiting list profiles from either actual or synthesised distributions
 # the rest of the waiting list is time dependent and will calculated in the period iteration
 
-# * * * 2.3.1.1. Non-Admitted ----
+# * * * 2.2.1.1. Non-Admitted ----
 if(df_param$value[df_param$variable=='wl_type_nonadm']=='actual'){
   # Read the actual distribution into each trial at period 0 (row 1)
   v <- df_param_actual[df_param_actual$variable=='wl_nonadm', 3:(sim_bins+3)] %>% 
@@ -381,15 +382,15 @@ if(df_param$value[df_param$variable=='wl_type_adm']=='actual'){
   wl_adm[1,,] <- v 
 }
 
-# * * 2.3.2. Clock Stops ----
+# * * 2.2.2. Clock Stops ----
 # ```````````````````````````
 # Clock stops are time dependent so nothing to calculate here
 
-# * * 2.3.3. Demand ----
+# * * 2.2.3. Demand ----
 # ``````````````````````
 # Populate the demand parameter and volume arrays from the input
 
-# * * * 2.3.3.1. Non-Admitted ----
+# * * * 2.2.3.1. Non-Admitted ----
 # Create a data frame of period from, period to, mean and sd
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='dem_mean_nonadm'],
                          mean = df_param_synthetic$value[df_param_synthetic$variable=='dem_mean_nonadm'],
@@ -408,7 +409,31 @@ dem_vol_nonadm[,] <- round(rnorm(n = sim_periods * sim_trials,
                            mean = dem_param_nonadm[,1], 
                            sd = dem_param_nonadm[,2]))
 
-# * * * 2.3.3.2. Admitted ----
+# Create the actual demand by bin, period and trial
+res <- lapply(X = 1:sim_trials,
+       FUN = function(t){
+         lapply(X = 1:sim_periods,
+                FUN = function(p, t){
+                  tabulate(
+                    bin = sample(x = 1:(sim_bins+1),
+                                 size = dem_vol_nonadm[p, t],
+                                 replace = TRUE,
+                                 prob = demprof_nonadm[p, ]),
+                    nbins = sim_bins+1)
+                },
+                t
+          )
+       })
+
+# Unlist the results from the lapply
+res <- unlist(res)
+# Note dimensions are deliberately in the incorrect order (bins, periods, trials) rather than
+# (periods, bins, trials) due to the way we have to unlist then reshape
+dim(res) <- c(sim_bins+1, sim_periods, sim_trials)
+# Reshape to the correct dimension order (periods, bins, trials)
+dem_nonadm[,,] <- aperm(res, c(2, 1, 3))
+
+# * * * 2.2.3.2. Admitted ----
 # Create a data frame of period from, period to, mean and sd
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='dem_mean_adm'],
                          mean = df_param_synthetic$value[df_param_synthetic$variable=='dem_mean_adm'],
@@ -427,7 +452,32 @@ dem_vol_adm[,] <- round(rnorm(n = sim_periods * sim_trials,
                               mean = dem_param_adm[,1], 
                               sd = dem_param_adm[,2]))
 
-# * * 2.3.4. Capacity ----
+# Create the actual demand by bin, period and trial
+res <- lapply(X = 1:sim_trials,
+              FUN = function(t){
+                lapply(X = 1:sim_periods,
+                       FUN = function(p, t){
+                         tabulate(
+                           bin = sample(x = 1:(sim_bins+1),
+                                        size = dem_vol_adm[p, t],
+                                        replace = TRUE,
+                                        prob = demprof_adm[p, ]),
+                           nbins = sim_bins+1)
+                       },
+                       t
+                )
+              })
+
+# Unlist the results from the lapply
+res <- unlist(res)
+# Note dimensions are deliberately in the incorrect order (bins, periods, trials) rather than
+# (periods, bins, trials) due to the way we have to unlist then reshape
+dim(res) <- c(sim_bins+1, sim_periods, sim_trials)
+# Reshape to the correct dimension order (periods, bins, trials)
+dem_adm[,,] <- aperm(res, c(2, 1, 3))
+
+
+# * * 2.2.4. Capacity ----
 # ````````````````````````
 # Populate the capacity parameter and volume arrays from the input
 
@@ -450,7 +500,7 @@ cap_vol_nonadm[,] <- round(rnorm(n = sim_periods * sim_trials,
                                  mean = cap_param_nonadm[,1], 
                                  sd = cap_param_nonadm[,2]))
 
-# * * * 2.3.4.1. Admitted ----
+# * * * 2.2.4.1. Admitted ----
 # Create a data frame of period from, period to, mean and sd
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='cap_mean_adm'],
                          mean = df_param_synthetic$value[df_param_synthetic$variable=='cap_mean_adm'],
@@ -469,11 +519,11 @@ cap_vol_adm[,] <- round(rnorm(n = sim_periods * sim_trials,
                               mean = cap_param_adm[,1], 
                               sd = cap_param_adm[,2]))
 
-# * * 2.3.5. Non-RTT ----
+# * * 2.2.5. Non-RTT ----
 # ```````````````````````
 # Populate the non-RTT parameter and volume arrays from the input
 
-# * * * 2.3.5.1. Non-Admitted ----
+# * * * 2.2.5.1. Non-Admitted ----
 # Create a data frame of period from, period to, and probability
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='nonrtt_prob_nonadm'],
                          prob = df_param_synthetic$value[df_param_synthetic$variable=='nonrtt_prob_nonadm']) %>%
@@ -489,7 +539,7 @@ nonrtt_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials,
                             size = cap_vol_nonadm, 
                             prob = nonrtt_param_nonadm)
 
-# * * * 2.3.5.2. Admitted ----
+# * * * 2.2.5.2. Admitted ----
 # Create a data frame of period from, period to, and probability
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='nonrtt_prob_adm'],
                          prob = df_param_synthetic$value[df_param_synthetic$variable=='nonrtt_prob_adm']) %>%
@@ -505,11 +555,11 @@ nonrtt_vol_adm[,] <- rbinom(n = sim_periods*sim_trials,
                             size = cap_vol_adm, 
                             prob = nonrtt_param_adm)
 
-# * * 2.3.6. ROTT ----
+# * * 2.2.6. ROTT ----
 # Populate the ROTT parameter and volume arrays from the input, 
 # the ROTT results are time dependent so nothing to calculate here
 
-# * * * 2.3.6.1. Non-Admitted ----
+# * * * 2.2.6.1. Non-Admitted ----
 # Create a data frame of period from, period to, and probability
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='rott_prob_nonadm'],
                          prob = df_param_synthetic$value[df_param_synthetic$variable=='rott_prob_nonadm']) %>%
@@ -525,7 +575,7 @@ rott_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials,
                              size = cap_vol_nonadm, 
                              prob = rott_param_nonadm)
 
-# * * * 2.3.6.2. Admitted ----
+# * * * 2.2.6.2. Admitted ----
 # Create a data frame of period from, period to, and probability
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='rott_prob_adm'],
                          prob = df_param_synthetic$value[df_param_synthetic$variable=='rott_prob_adm']) %>%
@@ -541,11 +591,11 @@ rott_vol_adm[,] <- rbinom(n = sim_periods*sim_trials,
                           size = cap_vol_adm, 
                           prob = rott_param_adm)
 
-# * * 2.3.7. Conversions ----
+# * * 2.2.7. Conversions ----
 # Populate the conversion parameter and volume arrays from the input, 
 # the ROTT results are time dependent so nothing to calculate here
 
-# * * * 2.3.7.1. Non-Admitted ----
+# * * * 2.2.7.1. Non-Admitted ----
 # Create a data frame of period from, period to, and probability
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='conv_prob_nonadm'],
                          prob = df_param_synthetic$value[df_param_synthetic$variable=='conv_prob_nonadm']) %>%
@@ -561,7 +611,7 @@ conv_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials,
                              size = cap_vol_nonadm, 
                              prob = conv_param_nonadm)
 
-# * * * 2.3.7.2. Admitted ----
+# * * * 2.2.7.2. Admitted ----
 # Create a data frame of period from, period to, and probability
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='conv_prob_adm'],
                          prob = df_param_synthetic$value[df_param_synthetic$variable=='conv_prob_adm']) %>%
@@ -577,8 +627,18 @@ conv_vol_adm[,] <- rbinom(n = sim_periods*sim_trials,
                           size = cap_vol_adm, 
                           prob = conv_param_adm)
 
+# 3. Process simulation run (trial) ----
+# **************************************
+
+for(t in 1:sim_trials){
+
+  # 4. Process simulation periods ----
+  # **********************************
+  
+}
 
 
+# 
 
 
 
@@ -1374,3 +1434,83 @@ zip(zipfile = paste0(outputdir, '/', sim_name, '.zip'),
 
 # Clear all data apart from outputdir and sim_name
 # rm(list=ls()[!grepl('sim_name|outputdir', ls())])
+
+
+
+plot(x = 0:52, y = tabulate(bin = rbetabinom.ab(n = 100, size = 52, shape1 = 0.5, shape2 = 1.0)+1,
+         nbins = 53))
+
+data.frame(bins = 0:52, vol = tabulate(bin = rbetabinom.ab(n = 1000, size = 52, shape1 = 0.5, shape2 = 0.5)+1,
+                                       nbins = 53))
+
+plot(rbetabinom(11, 1000, prob = dbetabinom.ab(x = 0:10, size = 10, shape1 = 1.0, shape2 = 1.0)))
+rbetabinom(10, 100, prob = c(0.25, 0.5, 0.25))
+
+arr_vol <- array(dim = c(4,3))
+arr_vol[,] <- c(1,5,10,20)
+arr_prof <- array(dim = c(4,5))
+v <- rep(c(0.5,0.25,0.15,0.075,0.025), 4)
+dim(v) <- c(5,4)
+arr_prof <- t(v)
+
+
+library(abind)
+sim_bins = 5
+sim_periods = 4
+sim_trials = 3
+
+
+arr <- unlist(res)
+dim(arr) <- c(5,4,3)
+arr <- aperm(arr, c(2,1,3))
+res <- lapply(X = 1:sim_trials,
+       FUN = function(t){
+         lapply(X = 1:sim_periods,
+                FUN = fnTemp,
+                t)
+       })
+       
+fnTemp <- function(p, t){
+  v <- sample(x = 1:sim_bins,
+              size = arr_vol[p,t],
+              replace = TRUE,
+              prob = arr_prof[p, ]
+              )
+  return(tabulate(bin = v, nbins = sim_bins))
+}
+
+t = 1
+lapply(t = 1:3, 
+       FUN = function(t){
+         lapply(p=1:4, 
+                FUN = function(p){
+                  rbetabinom(n = arr_vol[p,t], 
+                             size = 5, 
+                             prob = arr_prof[p,])})})
+    
+
+rbetabinom(n = arr_vol[,1], size = 5, prob = arr_prof[1,])
+rbetabinom(n = 1, size = 5, prob = arr_prof[1,])
+rbetabinom(n = 5, size = 5, prob = arr_prof[1,])
+rbetabinom(n = 10, size = 5, prob = arr_prof[1,])
+rbetabinom(n = 20, size = 5, prob = arr_prof[1,])
+
+rbetabinom(n = c(1, 5, 10, 20), size = 5, prob = arr_prof)
+
+tabulate(bin = sample(x = 1:5, 
+                      size = 1000,
+                      replace = TRUE,
+                      prob = arr_prof[1,]),
+         nbins = 5)
+
+
+v <- rbetabinom(n = arr_vol, size = 5, prob = arr_prof)
+dim(v) <- c(4, 5)
+v
+
+  rbetabinom(n = rep(), 
+             size = sim_bins,
+             prob = demprof_nonadm)
+  
+  x  <- array(1:24, 2:4)
+  xt <- aperm(x, c(2,1,3))
