@@ -25,6 +25,7 @@
 library(tidyverse)
 library(VGAM)
 library(readxl)
+library(reshape2)
 
 # * 0.2. Functions ----
 # `````````````````````
@@ -110,6 +111,24 @@ fnCreateProfileFromSyntheticDistribution <- function(profile_type_var){
   dim(arr) <- c(sim_bins+1, sim_periods)
   arr <- t(arr)
   return(arr)
+}
+
+# Function to write a 2d (volume) array as a csv file
+fnWrite2dArray <- function(array, filename){
+  df <- melt(array) %>% 
+    rename_with(.fn = ~c('period','trial','volume'))
+  write.csv(df, filename, row.names = FALSE)
+}
+
+# Function to write a 3d (profile) array as a csv file
+fnWrite3dArray <- function(array, filename, bool_wl_special_case = FALSE){
+  df <- melt(array) %>% 
+    rename_with(.fn = ~c('period','bin','trial','volume')) %>% 
+    mutate(bin = bin - 1)
+  if(bool_wl_special_case){
+    df <- df %>% mutate(period = period - 1)
+  }
+  write.csv(df, filename, row.names = FALSE)
 }
 
 
@@ -629,888 +648,228 @@ conv_vol_adm[,] <- rbinom(n = sim_periods*sim_trials,
 
 # 3. Process simulation run (trial) ----
 # **************************************
-
 for(t in 1:sim_trials){
 
+  
   # 4. Process simulation periods ----
   # **********************************
-  
-}
-
-
-# 
-
-
-
-
-
-
-
-# * 2.1. Populate Time Independent Variables ----
-# ```````````````````````````````````````````````
-# * 2.2. Profile Variables ----
-# `````````````````````````````
-# * * 2.2.1. Clock Stops ----
-# * * 2.2.2. Demand ----
-# * * 2.2.3. ROTT ----
-# * * 2.2.4. Conversion ----
-#
-# * 2.3. Process Variables ----
-# `````````````````````````````
-# * * 2.3.1. Waiting List ----
-# * * 2.3.2. Clock Stops ----
-# * * 2.3.3. Demand ----
-# * * 2.3.4. Capacity ----
-# * * 2.3.5. Non-RTT ----
-# * * 2.3.6. ROTT ----
-# * * 2.3.7. Conversions ----
-
-
-# ----------------------------
-
-
-# Simulation outputs
-# ******************
-# Waiting Lists:
-# wl_nonadm - 2d matrix (period, bin) showing the number of people waiting on 
-#             the non-admitted waiting list by period and bin
-# wl_adm - 2d matrix (period, bin) showing the number of people waiting on the 
-#          admitted waiting list by period and bin
-
-# Take-off Profiles:
-# top_nonadm - 2d matrix (period, bin) showing the non-admitted 
-#              take-off weighting by period and bin
-# top_adm - 2d matrix (period, bin) showing the admitted 
-#           take-off weighting by period and bin
-
-# Clock Stops:
-# cs_nonadm - 2d matrix (period, bin) showing the non-admitted clock stops by 
-#             period and bin
-# cs_adm - 2d matrix (period, bin) showing the admitted clock stops by 
-#          period and bin
-
-# Demand:
-# dem_nonadm - 1d matrix (period) showing the new non-admitted demand by period
-# dem_adm - 1d matrix (period) showing the new admitted demand by period
-
-# Capacity:
-# cap_nonadm - 1d matrix (period) showing the total non-admitted capacity by period
-# cap_adm - 1d matrix (period) showing the total admitted capacity by period
-
-# Non-RTT:
-# nonrtt_nonadm - 1d matrix (period) showing the non-admitted non-RTT activity 
-#                 by period
-# nonrtt_adm - 1d matrix (period) showing the admitted non-RTT activity 
-#                 by period
-
-# ROTT:
-# rott_nonadm - 1d matrix (period) showing the non-admitted removals other than 
-#               treatment (ROTT) activity by period
-# rott_adm - 1d matrix (period) showing the admitted removals other than 
-#               treatment (ROTT) activity by period
-
-# Conversions:
-# conv_nonadm - 2d matrix (period, bin) showing the non-admitted pathways converted 
-#               to admitted pathways by period and bin
-# conv_adm - NOT REQUIRED AS MODELLING ASSUMPTION IS THAT NO CONVERSION EXISTS
-#            FROM ADM TO NONADM PATHWAYS
-
-
-# * 1.1. Waiting List [SINGLE DIST|MATRIX] ----
-# *********************************************
-# Get the size of the array that we will populate with the results of one simulation run
-array_size <- (sim_periods+1)*(sim_bins+1)*(sim_trials)
-# Create an array and fill with zeros for the admitted waiting list
-wl_adm <- array(data = rep(0, array_size),
-                dim = c(sim_periods+1, sim_bins+1, sim_trials))
-# Create a copy of the admitted waiting list for the non-admitted waiting list
-wl_nonadm <- wl_adm
-
-# * * 1.1.1. Waiting List - NonAdm ----
-# *************************************
-if(df_param %>% filter(variable == 'wl_type_nonadm') %>% .$value == 'matrix'){
-  # Read the waiting list from the param matrix into the first line of the waiting list array (period 0) for each trial
-  wl_nonadm[1,,] <- df_param_matrix %>% 
-    filter(variable == 'wl_nonadm' & period == 0) %>%
-    select(-c(sim_code, variable, period)) %>% 
-    t() %>% 
-    as.vector()
-} else if(df_param %>% filter(variable == 'wl_type_nonadm') %>% .$value == 'dist'){
-  # Create and tabulate the waiting list from the param dist variables and write to the first line of the array for each trial
-  waiting_list_size <- df_param_dist$value[df_param_dist$variable=='wl_size_nonadm']
-  shape_param_1 <- df_param_dist$value[df_param_dist$variable=='wl_shape1_nonadm']
-  shape_param_2 <- df_param_dist$value[df_param_dist$variable=='wl_shape2_nonadm']
-  wl_nonadm[1,,] <- tabulate(bin = rbetabinom.ab(n = waiting_list_size, 
-                                            size = bins, 
-                                            shape1 = shape_param_1, 
-                                            shape2 = shape_param_2),
-                          nbins = sim_bins+1)
-}
-
-# * * 1.1.2. Waiting List - Adm ----
-# **********************************
-if(df_param %>% filter(variable == 'wl_type_adm') %>% .$value == 'matrix'){
-  # Read the waiting list from the param matrix into the first line of the waiting list array (period 0) for each trial
-  wl_adm[1,,] <- df_param_matrix %>% 
-    filter(variable == 'wl_adm' & period == 0) %>%
-    select(-c(sim_code, variable, period)) %>% 
-    t() %>% 
-    as.vector()
-} else if(df_param %>% filter(variable == 'wl_type_adm') %>% .$value == 'dist'){
-  # Create and tabulate the waiting list from the param dist variables and write to the first line of the array for each trial
-  waiting_list_size <- df_param_dist$value[df_param_dist$variable=='wl_size_adm']
-  shape_param_1 <- df_param_dist$value[df_param_dist$variable=='wl_shape1_adm']
-  shape_param_2 <- df_param_dist$value[df_param_dist$variable=='wl_shape2_adm']
-  wl_adm[0, ] <- tabulate(bin = rbetabinom.ab(n = waiting_list_size, 
-                                              size = bins, 
-                                              shape1 = shape_param_1, 
-                                              shape2 = shape_param_2),
-                          nbins = sim_bins+1)
-}
-
-# * 1.2. Take Off Profile [MULTIPLE MATRIX] ----
-# **********************************************
-# Resize the array as we only need period zero for the waiting list, note the lack of trial dimension as
-# there is no variability in the take-off profile by trial
-array_size <- (sim_periods)*(sim_bins+1)
-# Create an array and fill with zeros for the admitted take-off profile
-top_adm <- array(data = rep(0, array_size),
-                dim = c(sim_periods, sim_bins+1))
-# Create a copy of the admitted take-off profile for the non-admitted take-off profile
-top_nonadm <- top_adm
-
-# * * 1.2.1. Take Off Profile - NonAdm ----
-# *****************************************
-if(df_param %>% filter(variable == 'top_type_nonadm') %>% .$value == 'matrix'){
-  # Read the take-off profile from the param matrix into the relevant line of the array (as defined by period)
-  period_list <- df_param_matrix %>% 
-    filter(variable == 'top_nonadm') %>% 
-    arrange(period) %>% 
-    distinct(period) %>% 
-    .$period
-  for(p in 1:length(period_list)){
-    # Calculate the from and to period that we will block fill
-    from_period <- period_list[p]
-    to_period <- period_list[p+1]-1
-    if(is.na(to_period)){
-      to_period <- sim_periods
-    }
-    vec_values <- df_param_matrix %>% filter(variable == 'top_nonadm' & period == from_period) %>% 
-      select(-c(sim_code, variable, period)) %>% 
-      t() %>% 
-      as.vector()
-    # Add row by row to array NB: no need to add one to the period row one refers to period 1
-    for(r in from_period:to_period){
-      top_nonadm[r,] <- vec_values  
-    }
-  }
-} else if(df_param %>% filter(variable == 'top_type_nonadm') %>% .$value == 'dist'){
-  # Create and tabulate the take-off profile from the param dist variables and write to the relevant line of the array (as defined by period)
-  period_list <- df_param_dist %>% 
-    filter(variable == 'top_shape1_nonadm') %>% 
-    arrange(period) %>% 
-    distinct(period) %>% 
-    .$period
-  for(p in 1:length(period_list)){
-    # Get the shape parameters
-    shape_param_1 <- df_param_dist %>% filter(variable == 'top_shape1_nonadm' & period == period_list[p]) %>% .$value
-    shape_param_2 <- df_param_dist %>% filter(variable == 'top_shape2_nonadm' & period == period_list[p]) %>% .$value
-    
-    # Calculate the from and to period that we will block fill
-    from_period <- period_list[p]
-    to_period <- period_list[p+1]-1
-    if(is.na(to_period)){
-      to_period <- sim_periods
-    }
-    # Create the take-off profile
-    vec_values <- dbetabinom.ab(x = 0:sim_bins, 
-                                size = sim_bins, 
-                                shape1 = shape_param_1, 
-                                shape2 = shape_param_2)
-    # Add row by row to array NB: no need to add one to the period row one refers to period 1
-    for(r in from_period:to_period){
-      top_nonadm[r,] <- vec_values  
-    }
-  }
-}
-
-# * * 1.2.2. Take Off Profile - Adm ----
-# **************************************
-if(df_param %>% filter(variable == 'top_type_adm') %>% .$value == 'matrix'){
-  # Read the take-off profile from the param matrix into the relevant line of the array (as defined by period)
-  period_list <- df_param_matrix %>% 
-    filter(variable == 'top_adm') %>% 
-    arrange(period) %>% 
-    distinct(period) %>% 
-    .$period
-  for(p in 1:length(period_list)){
-    # Calculate the from and to period that we will block fill
-    from_period <- period_list[p]
-    to_period <- period_list[p+1]-1
-    if(is.na(to_period)){
-      to_period <- sim_periods
-    }
-    vec_values <- df_param_matrix %>% filter(variable == 'top_adm' & period == from_period) %>% 
-      select(-c(sim_code, variable, period)) %>% 
-      t() %>% 
-      as.vector()
-    # Add row by row to array NB: no need to add one to the period row one refers to period 1
-    for(r in from_period:to_period){
-      top_adm[r,] <- vec_values  
-    }
-  }
-} else if(df_param %>% filter(variable == 'top_type_adm') %>% .$value == 'dist'){
-  # Create and tabulate the take-off profile from the param dist variables and write to the relevant line of the array (as defined by period)
-  period_list <- df_param_dist %>% 
-    filter(variable == 'top_shape1_adm') %>% 
-    arrange(period) %>% 
-    distinct(period) %>% 
-    .$period
-  for(p in 1:length(period_list)){
-    # Get the shape parameters
-    shape_param_1 <- df_param_dist %>% filter(variable == 'top_shape1_adm' & period == period_list[p]) %>% .$value
-    shape_param_2 <- df_param_dist %>% filter(variable == 'top_shape2_adm' & period == period_list[p]) %>% .$value
-    
-    # Calculate the from and to period that we will block fill
-    from_period <- period_list[p]
-    to_period <- period_list[p+1]-1
-    if(is.na(to_period)){
-      to_period <- sim_periods
-    }
-    # Create the take-off profile
-    vec_values <- dbetabinom.ab(x = 0:sim_bins, 
-                                size = sim_bins, 
-                                shape1 = shape_param_1, 
-                                shape2 = shape_param_2)
-    # Add row by row to array NB: no need to add one to the period row one refers to period 1
-    for(r in from_period:to_period){
-      top_adm[r,] <- vec_values  
-    }
-  }
-}
-
-# * 1.3. Clock Stops [MULTIPLE] ---- 
-# **********************************
-# Create an array and fill with zeros for the admitted clock stops, again not needing
-# a period zero for the clock stops
-array_size <- (sim_periods+1)*(sim_bins+1)*(sim_trials)
-cs_adm <- array(data = rep(0, array_size),
-                dim = c(sim_periods, sim_bins+1, sim_trials))
-# Create a copy of the admitted clock stops for the non-admitted clock stops
-cs_nonadm <- cs_adm
-
-# * * 1.3.1. Clock Stops - NonAdm ----
-# ************************************
-# No additional processing needed for the clock stops but for completeness we will keep the section header
-
-# * * 1.3.2. Clock Stops - Adm ----
-# *********************************
-# No additional processing needed for the clock stops but for completeness we will keep the section header
-
-# * 1.4. Demand [MULTIPLE DIST] ----
-# **********************************
-# Create a 2d array for the demand parameters (mean and sd), note lack of trials dimension as 
-# no variability in the parameters by trial
-dem_param_adm <- array(data = rep(0, sim_periods*2),
-                 dim = c(sim_periods, 2))
-# Create a copy of the new admitted demand parameters for the new non-admitted demand parameters
-dem_param_nonadm <- dem_param_adm
-
-# * * 1.4.1. Demand - NonAdm ----
-# *******************************
-# Get the parameter entries for the non-admitted demand
-period_list <- df_param_dist %>% 
-  filter(variable == 'dem_mean_nonadm') %>% 
-  arrange(period) %>% 
-  distinct(period) %>% 
-  .$period
-for(p in 1:length(period_list)){
-  # Get the demand parameters
-  dem_mean_nonadm <- df_param_dist %>% filter(variable == 'dem_mean_nonadm' & period == period_list[p]) %>% .$value
-  dem_sd_nonadm <- df_param_dist %>% filter(variable == 'dem_sd_nonadm' & period == period_list[p]) %>% .$value
-  # Calculate the from and to period that we will block fill
-  from_period <- period_list[p]
-  to_period <- period_list[p+1]-1
-  if(is.na(to_period)){
-    to_period <- sim_periods
-  }
-  # Add columns of means and sd to the array
-  dem_param_nonadm[from_period:to_period, 1] <- dem_mean_nonadm
-  dem_param_nonadm[from_period:to_period, 2] <- dem_sd_nonadm
-}
-
-# * * 1.4.2. Demand - Adm ----
-# ****************************
-period_list <- df_param_dist %>% 
-  filter(variable == 'dem_mean_adm') %>% 
-  arrange(period) %>% 
-  distinct(period) %>% 
-  .$period
-for(p in 1:length(period_list)){
-  # Get the demand parameters
-  dem_mean_adm <- df_param_dist %>% filter(variable == 'dem_mean_adm' & period == period_list[p]) %>% .$value
-  dem_sd_adm <- df_param_dist %>% filter(variable == 'dem_sd_adm' & period == period_list[p]) %>% .$value
-  # Calculate the from and to period that we will block fill
-  from_period <- period_list[p]
-  to_period <- period_list[p+1]-1
-  if(is.na(to_period)){
-    to_period <- sim_periods
-  }
-  # Add columns of means and sd to the array
-  dem_param_adm[from_period:to_period, 1] <- dem_mean_adm
-  dem_param_adm[from_period:to_period, 2] <- dem_sd_adm
-}
-
-# * 1.5. Capacity [MULTIPLE DIST] ----
-# ************************************
-# Create a 2d array for the capacity parameters (mean and sd)
-cap_param_adm <- array(data = rep(0, sim_periods*2),
-                       dim = c(sim_periods, 2))
-# Create a copy of the total admitted capacity parameters for the total 
-# non-admitted capacity parameters
-cap_param_nonadm <- cap_param_adm
-
-# * * 1.5.1. Capacity - NonAdm ----
-# *********************************
-# Get the parameter entries for the non-admitted capacity
-period_list <- df_param_dist %>% 
-  filter(variable == 'cap_mean_nonadm') %>% 
-  arrange(period) %>% 
-  distinct(period) %>% 
-  .$period
-for(p in 1:length(period_list)){
-  # Get the cacapity parameters
-  cap_mean_nonadm <- df_param_dist %>% filter(variable == 'cap_mean_nonadm' & period == period_list[p]) %>% .$value
-  cap_sd_nonadm <- df_param_dist %>% filter(variable == 'cap_sd_nonadm' & period == period_list[p]) %>% .$value
-  # Calculate the from and to period that we will block fill
-  from_period <- period_list[p]
-  to_period <- period_list[p+1]-1
-  if(is.na(to_period)){
-    to_period <- sim_periods
-  }
-  # Add columns of means and sd to the array
-  cap_param_nonadm[from_period:to_period, 1] <- cap_mean_nonadm
-  cap_param_nonadm[from_period:to_period, 2] <- cap_sd_nonadm
-}
-
-# * * 1.5.2. Capacity - Adm ----
-# ******************************
-period_list <- df_param_dist %>% 
-  filter(variable == 'cap_mean_adm') %>% 
-  arrange(period) %>% 
-  distinct(period) %>% 
-  .$period
-for(p in 1:length(period_list)){
-  # Get the capacity parameters
-  cap_mean_adm <- df_param_dist %>% filter(variable == 'cap_mean_adm' & period == period_list[p]) %>% .$value
-  cap_sd_adm <- df_param_dist %>% filter(variable == 'cap_sd_adm' & period == period_list[p]) %>% .$value
-  # Calculate the from and to period that we will block fill
-  from_period <- period_list[p]
-  to_period <- period_list[p+1]-1
-  if(is.na(to_period)){
-    to_period <- sim_periods
-  }
-  # Add columns of means and sd to the array
-  cap_param_adm[from_period:to_period, 1] <- cap_mean_adm
-  cap_param_adm[from_period:to_period, 2] <- cap_sd_adm
-}
-
-# * 1.6. Non-RTT Activity [MULTIPLE DIST] ----
-# ********************************************
-# Create a 1d array for the non-RTT admitted parameter (probability)
-nonrtt_param_adm <- array(data = rep(0, sim_periods),
-                       dim = c(sim_periods))
-# Create a copy of the non-RTT admitted parameter for the non-RTT non-admitted parameter
-nonrtt_param_nonadm <- nonrtt_param_adm
-
-# * * 1.6.1. Non-RTT Activity - NonAdm ----
-# *****************************************
-period_list <- df_param_dist %>% 
-  filter(variable == 'nonrtt_prob_nonadm') %>% 
-  arrange(period) %>% 
-  distinct(period) %>% 
-  .$period
-for(p in 1:length(period_list)){
-  # Get the non-RTT parameter
-  nonrtt_prob_nonadm <- df_param_dist %>% filter(variable == 'nonrtt_prob_nonadm' & period == period_list[p]) %>% .$value
-  # Calculate the from and to period that we will block fill
-  from_period <- period_list[p]
-  to_period <- period_list[p+1]-1
-  if(is.na(to_period)){
-    to_period <- sim_periods
-  }
-  # Add column of non-RTT probability to the array
-  nonrtt_param_nonadm[from_period:to_period] <- nonrtt_prob_nonadm  
-}
-
-# * * 1.6.2. Non-RTT Activity - Adm ----
-# **************************************
-period_list <- df_param_dist %>% 
-  filter(variable == 'nonrtt_prob_adm') %>% 
-  arrange(period) %>% 
-  distinct(period) %>% 
-  .$period
-for(p in 1:length(period_list)){
-  # Get the non-RTT parameter
-  nonrtt_prob_adm <- df_param_dist %>% filter(variable == 'nonrtt_prob_adm' & period == period_list[p]) %>% .$value
-  # Calculate the from and to period that we will block fill
-  from_period <- period_list[p]
-  to_period <- period_list[p+1]-1
-  if(is.na(to_period)){
-    to_period <- sim_periods
-  }
-  # Add column of non-RTT probability to the array
-  nonrtt_param_adm[from_period:to_period] <- nonrtt_prob_adm  
-}
-
-# * 1.7. ROTT Activity [MULTIPLE DIST] ----
-# *****************************************
-# Create a 1d array for the ROTT admitted parameter (probability)
-rott_param_adm <- array(data = rep(0, sim_periods),
-                          dim = c(sim_periods))
-# Create a copy of the ROTT admitted parameter for the ROTT non-admitted parameter
-rott_param_nonadm <- rott_param_adm
-
-# * * 1.7.1. ROTT Activity - NonAdm ----
-# **************************************
-period_list <- df_param_dist %>% 
-  filter(variable == 'rott_prob_nonadm') %>% 
-  arrange(period) %>% 
-  distinct(period) %>% 
-  .$period
-for(p in 1:length(period_list)){
-  # Get the ROTT parameter
-  rott_prob_nonadm <- df_param_dist %>% filter(variable == 'rott_prob_nonadm' & period == period_list[p]) %>% .$value
-  # Calculate the from and to period that we will block fill
-  from_period <- period_list[p]
-  to_period <- period_list[p+1]-1
-  if(is.na(to_period)){
-    to_period <- sim_periods
-  }
-  # Add column of ROTT probability to the array
-  rott_param_nonadm[from_period:to_period] <- rott_prob_nonadm  
-}
-
-# * * 1.7.2. ROTT Activity - Adm ----
-# ***********************************
-
-period_list <- df_param_dist %>% 
-  filter(variable == 'rott_prob_adm') %>% 
-  arrange(period) %>% 
-  distinct(period) %>% 
-  .$period
-for(p in 1:length(period_list)){
-  # Get the ROTT parameter
-  rott_prob_adm <- df_param_dist %>% filter(variable == 'rott_prob_adm' & period == period_list[p]) %>% .$value
-  # Calculate the from and to period that we will block fill
-  from_period <- period_list[p]
-  to_period <- period_list[p+1]-1
-  if(is.na(to_period)){
-    to_period <- sim_periods
-  }
-  # Add column of ROTT probability to the array
-  rott_param_adm[from_period:to_period] <- rott_prob_adm
-}
-
-# * 1.8. Conversion Activity [MULTIPLE DIST] ----
-# ***********************************************
-# Create an array and fill with zeros for the admitted clock stops, again not needing
-# a period zero for the clock stops
-conv_nonadm <- array(data = rep(0, array_size),
-                dim = c(sim_periods, sim_bins+1, sim_trials))
-# Create a 1d array for the conversion parameter (probability)
-conv_param_nonadm <- array(data = rep(0, sim_periods),
-                        dim = c(sim_periods))
-
-# * * 1.8.1. Conversion Activity - NonAdm to Adm ----
-# ***************************************************
-period_list <- df_param_dist %>% 
-  filter(variable == 'conv_prob_nonadm') %>% 
-  arrange(period) %>% 
-  distinct(period) %>% 
-  .$period
-for(p in 1:length(period_list)){
-  # Get the conversion parameter
-  conv_prob_nonadm <- df_param_dist %>% filter(variable == 'conv_prob_nonadm' & period == period_list[p]) %>% .$value
-  # Calculate the from and to period that we will block fill
-  from_period <- period_list[p]
-  to_period <- period_list[p+1]-1
-  if(is.na(to_period)){
-    to_period <- sim_periods
-  }
-  # Add column of conversion probability to the array
-  conv_param_nonadm[from_period:to_period] <- conv_prob_nonadm  
-}
-
-# * * 1.8.2. No conversion step necessary for Adm to NonAdm ----
-# **************************************************************
-# The model assumes no conversion from admitted to non-admitted pathways
-
-# 2. Start of Simulation Iteration ----
-# *************************************
-# Note: this is the section that we will convert into a function
-for(t in 1:sim_trials){
-  # * 2.1. Create demand ----
-  # *************************
-  # Create a 2d array and fill with zeros for the new admitted demand
-  dem_adm <- array(data = rep(0, sim_periods*sim_trials),
-                   dim = c(sim_periods, sim_trials))
-  # Create a copy of the new admitted demand for the new non-admitted demand
-  dem_nonadm <- dem_adm
-  
-  # * * 2.1.1. Create demand - Non-Admitted ----
-  # ********************************************
-  # Pre-populate the dem_nonadm by running the random number generator
-  dem_nonadm <- round(rnorm(n = sim_periods*sim_trials, mean = dem_param_nonadm[,1], sd = dem_param_nonadm[,2]))
-  dim(dem_nonadm) <- c(sim_periods, sim_trials)
-  # * * 2.1.2. Create demand - Admitted ----
-  # ****************************************
-  # Pre-populate the dem_adm by running the random number generator
-  dem_adm <- round(rnorm(n = sim_periods*sim_trials, mean = dem_param_adm[,1], sd = dem_param_adm[,2]))
-  dim(dem_adm) <- c(sim_periods, sim_trials)
-  
-  # * 2.2. Create capacity ----
-  # ***************************
-  # Create a 1d array and fill with zeros for the total admitted capacity
-  cap_adm <- array(data = rep(0, sim_periods*sim_trials),
-                   dim = c(sim_periods, sim_trials))
-  # Create a copy of the total admitted capacity for the total non-admitted capacity
-  cap_nonadm <- cap_adm
-  
-  # * * 2.2.1. Create capacity - Non-Admitted ----
-  # **********************************************
-  # Pre-populate the cap_nonadm by running the random number generator
-  cap_nonadm <- round(rnorm(n = sim_periods*sim_trials, mean = cap_param_nonadm[,1], sd = cap_param_nonadm[,2]))
-  dim(cap_nonadm) <- c(sim_periods, sim_trials)
-  
-  # * * 2.2.2. Create capacity - Admitted ----
-  # ******************************************
-  # Pre-populate the cap_adm by running the random number generator
-  cap_adm <- round(rnorm(n = sim_periods*sim_trials, mean = cap_param_adm[,1], sd = cap_param_adm[,2]))
-  dim(cap_adm) <- c(sim_periods, sim_trials)
-  
-  # * 2.3. Create non-RTT activity ----
-  # ***********************************
-  # Create a 2d array and fill with zeros for the non-RTT admitted activity
-  nonrtt_adm <- array(data = rep(0, sim_periods*sim_trials),
-                      dim = c(sim_periods, sim_trials))
-  # Create a copy of the non-RTT admitted activity for the non-RTT non-admitted activity
-  nonrtt_nonadm <- nonrtt_adm
-  
-  # * * 2.3.1. Create non-RTT activity - Non-Admitted ----
-  # ******************************************************
-  # Pre-populate the nonrtt_nonadm by running the random number generator and using the pre-populated capacity
-  nonrtt_nonadm <- rbinom(n = sim_periods*sim_trials, size = cap_nonadm, prob = nonrtt_param_nonadm)
-  dim(nonrtt_nonadm) <- c(sim_periods, sim_trials)
-  
-  # * * 2.3.2. Create non-RTT activity - Admitted ----
-  # **************************************************
-  # Pre-populate the nonrtt_adm by running the random number generator and using the pre-populated capacity
-  nonrtt_adm <- rbinom(n = sim_periods*sim_trials, size = cap_adm, prob = nonrtt_param_adm)
-  dim(nonrtt_adm) <- c(sim_periods, sim_trials)
-  
-  # * 2.4. Create non-RTT activity ----
-  # ***********************************
-  # Create a 1d array and fill with zeros for the ROTT admitted activity
-  rott_adm <- array(data = rep(0, sim_periods*sim_trials),
-                    dim = c(sim_periods,sim_trials))
-  # Create a copy of the ROTT admitted activity for the ROTT non-admitted activity
-  rott_nonadm <- rott_adm
-  # Note: We are unsure of the driver of ROTT so for ease of caclulation of the probablity the
-  # model assumes ROTT is a function of total capacity, removal is also assumed to be unweighted
-  # unlike take-off profiles but this could be changed should the coder wish to do so
-  
-  # * * 2.4.1. Create non-RTT activity - Non-Admitted ----
-  # ******************************************************
-  # Pre-populate the rott_nonadm by running the random number generator and using the pre-populated capacity
-  rott_nonadm <- rbinom(n = sim_periods*sim_trials, size = cap_nonadm, prob = rott_param_nonadm)
-  dim(rott_nonadm) <- c(sim_periods, sim_trials)
-  
-  # * * 2.4.2. Create non-RTT activity - Admitted ----
-  # **************************************************
-  # Pre-populate the rott_adm by running the random number generator and using the pre-populated capacity
-  rott_adm <- rbinom(n = sim_periods*sim_trials, size = cap_adm, prob = rott_param_adm)
-  dim(rott_adm) <- c(sim_periods, sim_trials)
-  
-  # * 2.5. Create conversion activity ---- 
-  # **************************************
-  # Create a 2d array and fill with zeros for the conversion from non-admitted to 
-  # admitted activity. NB: There is assumed to be no conversion in the opposite direction
-  conv_vol_nonadm <- array(data = rep(0, sim_periods*sim_trials),
-                           dim = c(sim_periods, sim_trials))
-  
-  # * * 2.5.1. Create conversion activity - Non-Admitted ----
-  # *********************************************************
-  # Pre-populate the conv_nonadm by running the random number generator and using 
-  # the pre-populated capacity and removing the pre-populated non-RTT activity
-  conv_vol_nonadm <- rbinom(n = sim_periods*sim_trials, size = (cap_nonadm - nonrtt_nonadm), prob = conv_param_nonadm)
-  dim(conv_vol_nonadm) <- c(sim_periods, sim_trials)
-  
-  # * * 2.5.2. Create conversion activity - Admitted ----
-  # *****************************************************
-  # Model assumes no conversion from admitted to non-admitted pathways
-  
-  # Run the period loop
-  for(p in 1:sim_periods){
-    # 3. Start of Period Iteration ----
-    # *********************************
-    
-    # * 3.1. Process Non-Admitted Activity ----
-    # *****************************************
-    
-    # * * 3.1.1. Initialise waiting list - Non-Admitted ----
-    # ******************************************************
-    # Initialise the current period waiting list with that of the previous period
-    # NB: As this is zero based p+1 is the current period
+  for(p in 1:sim_periods)
+  {
+    # NB: When referring to the waiting list arrays we must remember that the 
+    # one based array includes an entry for period zero and as such we need to 
+    # refer to p+1 instead of p but only for the waiting list arrays. For all 
+    # other we will refer to p as p.
+    # * 4.1. Initialise Waiting List ----
+    # ```````````````````````````````````
+    # Set the current period waiting list to be that of the previous period
+    # * * 4.1.1. Non-Admitted ----
     wl_nonadm[p+1,,t] <- wl_nonadm[p,,t]
-    
-    # * * 3.1.2. Process ROTT - Non-Admitted ----
-    # *******************************************
-    # Create ROTT sample from waiting list, and check that we don't sample more than is in the waiting list
-    rott_sample_nonadm <- sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
-                                 size = min(sum(wl_nonadm[p+1,,t]), 
-                                            rott_nonadm[p,t]),
-                                 replace = FALSE,
-                                 prob = NULL) # Replace prob with weightings if required
-    # Remove the sample from the current waiting list
-    # NB: We tabulate the sample with elements incremented by one as tabulate only 
-    # deals with positive integers
-    wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - tabulate(bin = rott_sample_nonadm+1,
-                                                    nbins = sim_bins+1)
-    
-    # * * 3.1.3. Process conversions - Non-Admitted ----
-    # **************************************************
-    # Create conversion sample, and check that we don't sample more than is in the waiting list
-    conv_sample_nonadm <- sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
-                                 size = min(sum(wl_nonadm[p+1,,t]), 
-                                            conv_vol_nonadm[p,t]),
-                                 replace = FALSE,
-                                 prob = NULL) # Replace prob with weightings if required
-    # Remove the sample from the waiting list
-    # NB: We tabulate the sample with elements incremented by one as tabulate only 
-    # deals with positive integers
-    wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - tabulate(bin = conv_sample_nonadm+1,
-                                                    nbins = sim_bins+1)
-    # Record the sample in the conv_nonadm array for this period
-    conv_nonadm[p,,t] <- tabulate(bin = conv_sample_nonadm+1,
-                                 nbins = sim_bins+1)
-    
-    # * * 3.1.4. Process clock stops - Non-Admitted ----
-    # **************************************************
-    # Create clock stop sample from waiting list based on current period take-off profile
-    # The rep used in the x converts from tabulated form into list form
-    # The rep used in the prob creates a list of probabilites in the take-off profile 
-    # based on the bin represented by x (adding one as the bins are zero based), 
-    # and check that we don't sample more than is in the waiting list
-    cs_sample_nonadm <- sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
-                               size = min(sum(wl_nonadm[p+1,,t]),
-                                          cap_nonadm[p,t] - nonrtt_nonadm[p,t] - conv_vol_nonadm[p,t]),
-                               replace = FALSE,
-                               prob = top_nonadm[p, rep(0:sim_bins, wl_nonadm[p+1,,t])+1])
-    # Remove the sample from the waiting list
-    wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - tabulate(bin = cs_sample_nonadm+1,
-                                                    nbins = sim_bins+1)
-    
-    # Record the sample in the cs_nonadm array for this period
-    cs_nonadm[p,,t] <- tabulate(bin = cs_sample_nonadm+1,
-                                nbins = sim_bins+1)    
-    
-    # * * 3.1.5. Process demand and process wait times - Non-Admitted ----
-    # ********************************************************************
-    # Right shift the current waiting list by right shifting the bins and summing
-    # the last two bins together and add in the new demand to the first bin
-    wl_nonadm[p+1,,t] <- c(dem_nonadm[p,t], 
-                           wl_nonadm[p+1, 1:sim_bins-1, t],
-                           sum(wl_nonadm[p+1, sim_bins:(sim_bins+1), t]))
-
-    # * 3.2. Process Admitted Activity ----
-    # *************************************
-    
-    # * * 3.2.1. Initialise waiting list - Admitted ----
-    # **************************************************
-    # Initialise the current period waiting list with that of the previous period
-    # NB: As this is zero based p+1 is the current period
+    # * * 4.1.2. Admitted ----
     wl_adm[p+1,,t] <- wl_adm[p,,t]
     
-    # * * 3.2.2. Process ROTT - Admitted ----
-    # *******************************************
-    # Create ROTT sample from waiting list, and check that we don't sample more than is in the waiting list
-    rott_sample_adm <- sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
-                              size = min(sum(wl_adm[p+1,,t]), 
-                                         rott_adm[p,t]),
-                              replace = FALSE,
-                              prob = NULL) # Replace prob with weightings if required
-    # Remove the sample from the current waiting list
-    # NB: We tabulate the sample with elements incremented by one as tabulate only 
-    # deals with postive integers
-    wl_adm[p+1,,t] <- wl_adm[p+1,,t] - tabulate(bin = rott_sample_adm+1,
-                                              nbins = sim_bins+1)
+    # * 4.2. Calculate Clock Stopping Capacity ----
+    # `````````````````````````````````````````````
+    # Remove the non-RTT activity from the capacity to leave the clock stopping activity
+    # * * 4.2.1. Non-Admitted ----
+    cs_vol_nonadm <- cap_vol_nonadm[p,t] - nonrtt_vol_nonadm[p,t]
+    # Check for negative activity and reset to zero if negative
+    cs_vol_nonadm <- max(0, cs_vol_nonadm)
     
-    # * * 3.2.3. Process conversions - Admitted ----
-    # **********************************************
-    # Model assumes no conversion between admitted and non-admitted pathways
+    # * * 4.2.2. Admitted ----
+    cs_vol_adm <- cap_vol_adm[p,t] - nonrtt_vol_adm[p,t]
+    # Check for negative activity and reset to zero if negative
+    cs_vol_adm <- max(0, cs_vol_adm)
     
-    # * * 3.2.4. Process clock stops - Admitted ----
-    # **********************************************
-    # Create clock stop sample from waiting list based on current period take-off profile
-    # The rep used in the x converts from tabulated form into list form
-    # The rep used in the prob creates a list of probabilites in the take-off profile 
-    # based on the bin represented by x (adding one as the bins are zero based)
-    # and check that we don't sample more than is in the waiting list
-    cs_sample_adm <- sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
-                            size = min(sum(wl_adm[p+1,,t]),
-                                       cap_adm[p,t] - nonrtt_adm[p,t]),
-                            replace = FALSE,
-                            prob = top_adm[p, rep(0:sim_bins, wl_adm[p+1,,t])+1])
-    # Remove the sample from the waiting list
-    wl_adm[p+1,,t] <- wl_adm[p+1,,t] - tabulate(bin = cs_sample_adm+1,
-                                              nbins = sim_bins+1)
+    # * 4.3. Process ROTT ----
+    # ````````````````````````
+
+    # * * 4.3.1. Non-Admitted ----
+
+    # If the ROTT volume is greater than the waiting list (shouldn't really happen)
+    # then set the ROTT volume to be the size of the waiting list
+    rott_vol_nonadm[p,t] <- min(rott_vol_nonadm[p,t], sum(wl_nonadm[p+1,,t]))
+    # Sample the waiting list using the ROTT profile
+    rott_nonadm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
+                                               size = rott_vol_nonadm[p,t],
+                                               replace = FALSE,
+                                               prob = rep(rottprof_nonadm[p,], wl_nonadm[p+1,,t]))+1,
+                                  nbins = sim_bins+1)
+    # Remove the ROTT sample from the waiting list
+    wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - rott_nonadm[p,,t]
     
-    # Record the sample in the cs_adm array for this period
-    cs_adm[p,,t] <- tabulate(bin = cs_sample_adm+1,
-                            nbins = sim_bins+1)
+    # * * 4.3.2. Admitted ----
     
-    # * * 3.2.5. Process demand and process wait times - Admitted ----
-    # ****************************************************************
+    # Get the ROTT and waiting list volumes for this period and trial (NB: p+1 for wl)
+    # If the ROTT volume is greater than the waiting list (shouldn't really happen)
+    # then set the ROTT volume to be the size of the waiting list
+    rott_vol_adm[p,t] <- min(rott_vol_adm[p,t], sum(wl_adm[p+1,,t]))
+    # Sample the waiting list using the ROTT profile
+    rott_adm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
+                                            size = rott_vol_adm[p,t],
+                                            replace = FALSE,
+                                            prob = rep(rottprof_adm[p,], wl_adm[p+1,,t]))+1,
+                               nbins = sim_bins+1)
+    # Remove the ROTT sample from the waiting list
+    wl_adm[p+1,,t] <- wl_adm[p+1,,t] - rott_adm[p,,t]
     
-    # Before processing the wait times add in conversions from non-admitted 
-    # to admitted pathways to the current waiting list
+    # * 4.4. Remove Conversions ----
+    # ``````````````````````````````
+    # * * 4.4.1. Non-Admitted ----
+
+    # If the conversion volume is greater than the waiting list (shouldn't really happen)
+    # then set the conversion volume to be the size of the waiting list
+    conv_vol_nonadm[p,t] <- min(conv_vol_nonadm[p,t], sum(wl_nonadm[p+1,,t]))
+    # Sample the waiting list using the conversion profile
+    conv_nonadm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
+                                            size = conv_vol_nonadm[p,t],
+                                            replace = FALSE,
+                                            prob = rep(convprof_nonadm[p,], wl_nonadm[p+1,,t]))+1,
+                               nbins = sim_bins+1)
+    # Remove the conversion sample from the waiting list
+    wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - conv_nonadm[p,,t]
+
+    # * * 4.4.2. Admitted ----
+
+    # If the conversion volume is greater than the waiting list (shouldn't really happen)
+    # then set the conversion volume to be the size of the waiting list
+    conv_vol_adm[p,t] <- min(conv_vol_adm[p,t], sum(wl_adm[p+1,,t]))
+    # Sample the waiting list using the conversion profile
+    conv_adm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
+                                               size = conv_vol_adm[p,t],
+                                               replace = FALSE,
+                                               prob = rep(convprof_adm[p,], wl_adm[p+1,,t]))+1,
+                                  nbins = sim_bins+1)
+    # Remove the conversion sample from the waiting list
+    wl_adm[p+1,,t] <- wl_adm[p+1,,t] - conv_adm[p,,t]
+
+    # * 4.5. Remove Clock Stops ----
+    # ``````````````````````````````
+    # * * 4.5.1. Non-Admitted ----
+    # If the clock stop volume is greater than the waiting list (shouldn't really happen)
+    # then set the clock stop volume to be the size of the waiting list
+    cs_vol_nonadm <- min(cs_vol_nonadm, sum(wl_nonadm[p+1,,t]))
+    # Sample the waiting list using the clock stop profile
+    cs_nonadm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
+                                             size = cs_vol_nonadm,
+                                             replace = FALSE,
+                                             prob = rep(csprof_nonadm[p,], wl_nonadm[p+1,,t]))+1,
+                                nbins = sim_bins+1)
+    
+    # Remove the conversion sample from the waiting list
+    wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - cs_nonadm[p,,t]
+    
+    # * * 4.5.2. Admitted ----
+    # If the clock stop volume is greater than the waiting list (shouldn't really happen)
+    # then set the clock stop volume to be the size of the waiting list
+    cs_vol_adm <- min(cs_vol_adm, sum(wl_adm[p+1,,t]))
+    # Sample the waiting list using the clock stop profile
+    cs_adm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
+                                          size = cs_vol_adm,
+                                          replace = FALSE,
+                                          prob = rep(csprof_adm[p,], wl_adm[p+1,,t]))+1,
+                             nbins = sim_bins+1)
+    
+    # Remove the conversion sample from the waiting list
+    wl_adm[p+1,,t] <- wl_adm[p+1,,t] - cs_adm[p,,t]
+    
+    # * 4.6. Add in Conversions ----
+    # ``````````````````````````````
+
+    # * * 4.6.1. Non-Admitted ----
+    # Add admitted pathways converting into non-admitted pathways
+    wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] + conv_adm[p,,t]
+
+    # * * 4.6.2. Admitted ----
+    # Add non-admitted pathways converting into admitted pathways
     wl_adm[p+1,,t] <- wl_adm[p+1,,t] + conv_nonadm[p,,t]
     
-    # Right shift the current waiting list by right shifting the bins and summing
-    # the last two bins together and add in the new demand to the first bin
-    wl_adm[p+1,,t] <- c(dem_adm[p,t], 
-                        wl_adm[p+1, 1:sim_bins-1, t],
-                        sum(wl_adm[p+1, sim_bins:(sim_bins+1), t]))
+    # * 4.7. Increment Period ----
+    # ````````````````````````````
+    # Move both waiting lists forward by one period (i.e. bin 0 becomes bin 1)
     
+    # * * 4.7.1. Non-Admitted ----
+    # Calculate the penultimate bin as the sum of the final and penultimate bin
+    wl_nonadm[p+1,sim_bins,t] <- sum(wl_nonadm[p+1,sim_bins:(sim_bins+1),t])
+    # Shift everthing right by one period
+    wl_nonadm[p+1,2:(sim_bins+1),t] <- wl_nonadm[p+1,1:sim_bins,t]
+    # Set the first bin as zero
+    wl_nonadm[p+1,1,t] <- 0
+
+    # * * 4.7.2. Admitted ----
+    # Calculate the penultimate bin as the sum of the final and penultimate bin
+    wl_adm[p+1,sim_bins,t] <- sum(wl_adm[p+1,sim_bins:(sim_bins+1),t])
+    # Shift everthing right by one period
+    wl_adm[p+1,2:(sim_bins+1),t] <- wl_adm[p+1,1:sim_bins,t]
+    # Set the first bin as zero
+    wl_adm[p+1,1,t] <- 0
     
+    # * 4.8. Add in Demand ----
+    # `````````````````````````
+    # * * 4.8.1. Non-Admitted ----
+    dem_nonadm[p,,t] <- tabulate(bin = rbetabinom(n = dem_vol_nonadm[p,t],
+                                                  size = sim_bins+1,
+                                                  prob = demprof_nonadm[p,])+1,
+                                 nbins = sim_bins+1)
     
+    # Add the demand sample into the waiting list
+    wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] + dem_nonadm[p,,t]
+
+    # * * 4.8.2. Admitted ----
+    dem_adm[p,,t] <- tabulate(bin = rbetabinom(n = dem_vol_adm[p,t],
+                                               size = sim_bins+1,
+                                               prob = demprof_adm[p,])+1,
+                              nbins = sim_bins+1)
     
+    # Add the demand sample into the waiting list
+    wl_adm[p+1,,t] <- wl_adm[p+1,,t] + dem_adm[p,,t]
   }
 }
-dtEnd <- Sys.time()
-dtEnd - dtStart
 
-# Save the results for use in charting and reporting
-save(list = c('sim_name', 
-              'sim_trials', 'sim_periods', 'sim_bins',
-              'wl_nonadm', 'wl_adm',
-              'cs_nonadm', 'cs_adm',
-              'dem_nonadm', 'dem_adm',
-              'cap_nonadm', 'cap_adm',
-              'nonrtt_nonadm', 'nonrtt_adm',
-              'rott_nonadm', 'rott_adm',
-              'conv_vol_nonadm', 'conv_nonadm'),
-     file = paste0(outputdir, '\\', sim_name, '.RObj'))
+# 5. Save the simulation results ----
+# ***********************************
+
+# Create object list
+obj_list <- c('sim_name', 'sim_bins', 'sim_periods', 'sim_trials',
+              'wl_adm', 'wl_nonadm',
+              'cs_adm', 'cs_nonadm',
+              'cap_vol_adm', 'cap_vol_nonadm',
+              'nonrtt_vol_adm', 'nonrtt_vol_nonadm',
+              'dem_adm', 'dem_nonadm', 'dem_vol_adm', 'dem_vol_nonadm',
+              'conv_adm', 'conv_nonadm', 'conv_vol_adm', 'conv_vol_nonadm',
+              'rott_adm', 'rott_nonadm', 'rott_vol_adm', 'rott_vol_nonadm')
 
 # Save human readable format of results
 write.csv(data.frame(sim_name, sim_trials, sim_periods, sim_bins), paste0(outputdir, '/sim_param.csv'))
-write.csv(melt(wl_adm), paste0(outputdir, '/wl_adm.csv'))
-write.csv(melt(wl_nonadm), paste0(outputdir, '/wl_nonadm.csv'))
-write.csv(melt(cs_adm), paste0(outputdir, '/cs_adm.csv'))
-write.csv(melt(cs_nonadm), paste0(outputdir, '/cs_nonadm.csv'))
-write.csv(melt(dem_adm), paste0(outputdir, '/dem_adm.csv'))
-write.csv(melt(dem_nonadm), paste0(outputdir, '/dem_nonadm.csv'))
-write.csv(melt(cap_adm), paste0(outputdir, '//cap_adm.csv'))
-write.csv(melt(cap_nonadm), paste0(outputdir, '/cap_nonadm.csv'))
-write.csv(melt(nonrtt_adm), paste0(outputdir, '/nonrtt_adm.csv'))
-write.csv(melt(nonrtt_nonadm), paste0(outputdir, '/nonrtt_nonadm.csv'))
-write.csv(melt(rott_adm), paste0(outputdir, '/rott_adm.csv'))
-write.csv(melt(rott_nonadm), paste0(outputdir, '/rott_nonadm.csv'))
-write.csv(melt(conv_vol_nonadm), paste0(outputdir, '/conv_vol_nonadm.csv'))
-write.csv(melt(conv_nonadm), paste0(outputdir, '/conv_nonadm.csv'))
+fnWrite3dArray(wl_adm, paste0(outputdir, '/wl_adm.csv'), TRUE)
+fnWrite3dArray(wl_nonadm, paste0(outputdir, '/wl_nonadm.csv'), TRUE)
+fnWrite3dArray(cs_adm, paste0(outputdir, '/cs_adm.csv'))
+fnWrite3dArray(cs_nonadm, paste0(outputdir, '/cs_nonadm.csv'))
+fnWrite3dArray(dem_adm, paste0(outputdir, '/dem_adm.csv'))
+fnWrite3dArray(dem_nonadm, paste0(outputdir, '/dem_nonadm.csv'))
+fnWrite3dArray(conv_adm, paste0(outputdir, '/conv_adm.csv'))
+fnWrite3dArray(conv_nonadm, paste0(outputdir, '/conv_nonadm.csv'))
+fnWrite3dArray(rott_adm, paste0(outputdir, '/rott_adm.csv'))
+fnWrite3dArray(rott_nonadm, paste0(outputdir, '/rott_nonadm.csv'))
+fnWrite2dArray(cap_vol_adm, paste0(outputdir, '//cap_vol_adm.csv'))
+fnWrite2dArray(cap_vol_nonadm, paste0(outputdir, '/cap_vol_nonadm.csv'))
+fnWrite2dArray(nonrtt_vol_adm, paste0(outputdir, '/nonrtt_vol_adm.csv'))
+fnWrite2dArray(nonrtt_vol_nonadm, paste0(outputdir, '/nonrtt_vol_nonadm.csv'))
+fnWrite2dArray(dem_vol_adm, paste0(outputdir, '/dem_vol_adm.csv'))
+fnWrite2dArray(dem_vol_nonadm, paste0(outputdir, '/dem_vol_nonadm.csv'))
+fnWrite2dArray(conv_vol_adm, paste0(outputdir, '/conv_vol_adm.csv'))
+fnWrite2dArray(conv_vol_nonadm, paste0(outputdir, '/conv_vol_nonadm.csv'))
+fnWrite2dArray(rott_vol_adm, paste0(outputdir, '/rott_vol_adm.csv'))
+fnWrite2dArray(rott_vol_nonadm,paste0(outputdir, '/rott_vol_nonadm.csv'))
 
 # Zip and clear temporary files
 zip(zipfile = paste0(outputdir, '/', sim_name, '.zip'), 
-    files = c(paste0(outputdir, '/sim_param.csv'), 
-              paste0(outputdir, '/wl_adm.csv'), paste0(outputdir, '/wl_nonadm.csv'),
-              paste0(outputdir, '/cs_adm.csv'), paste0(outputdir, '/cs_nonadm.csv'),
-              paste0(outputdir, '/dem_adm.csv'), paste0(outputdir, '/dem_nonadm.csv'),
-              paste0(outputdir, '/cap_adm.csv'), paste0(outputdir, '/cap_nonadm.csv'),
-              paste0(outputdir, '/nonrtt_adm.csv'), paste0(outputdir, '/nonrtt_nonadm.csv'),
-              paste0(outputdir, '/rott_adm.csv'), paste0(outputdir, '/rott_nonadm.csv'),
-              paste0(outputdir, '/conv_vol_nonadm.csv'), paste0(outputdir, '/conv_nonadm.csv')),
-    extras = '-m')
+    files = list.files(outputdir, full.names = TRUE),
+    extras = '-Djm')
+
+# Save the results as a machine readable RObj
+save(list = obj_list,
+     file = paste0(outputdir, '\\', sim_name, '.RObj'))
+
 
 # Clear all data apart from outputdir and sim_name
 # rm(list=ls()[!grepl('sim_name|outputdir', ls())])
-
-
-
-plot(x = 0:52, y = tabulate(bin = rbetabinom.ab(n = 100, size = 52, shape1 = 0.5, shape2 = 1.0)+1,
-         nbins = 53))
-
-data.frame(bins = 0:52, vol = tabulate(bin = rbetabinom.ab(n = 1000, size = 52, shape1 = 0.5, shape2 = 0.5)+1,
-                                       nbins = 53))
-
-plot(rbetabinom(11, 1000, prob = dbetabinom.ab(x = 0:10, size = 10, shape1 = 1.0, shape2 = 1.0)))
-rbetabinom(10, 100, prob = c(0.25, 0.5, 0.25))
-
-arr_vol <- array(dim = c(4,3))
-arr_vol[,] <- c(1,5,10,20)
-arr_prof <- array(dim = c(4,5))
-v <- rep(c(0.5,0.25,0.15,0.075,0.025), 4)
-dim(v) <- c(5,4)
-arr_prof <- t(v)
-
-
-library(abind)
-sim_bins = 5
-sim_periods = 4
-sim_trials = 3
-
-
-arr <- unlist(res)
-dim(arr) <- c(5,4,3)
-arr <- aperm(arr, c(2,1,3))
-res <- lapply(X = 1:sim_trials,
-       FUN = function(t){
-         lapply(X = 1:sim_periods,
-                FUN = fnTemp,
-                t)
-       })
-       
-fnTemp <- function(p, t){
-  v <- sample(x = 1:sim_bins,
-              size = arr_vol[p,t],
-              replace = TRUE,
-              prob = arr_prof[p, ]
-              )
-  return(tabulate(bin = v, nbins = sim_bins))
-}
-
-t = 1
-lapply(t = 1:3, 
-       FUN = function(t){
-         lapply(p=1:4, 
-                FUN = function(p){
-                  rbetabinom(n = arr_vol[p,t], 
-                             size = 5, 
-                             prob = arr_prof[p,])})})
-    
-
-rbetabinom(n = arr_vol[,1], size = 5, prob = arr_prof[1,])
-rbetabinom(n = 1, size = 5, prob = arr_prof[1,])
-rbetabinom(n = 5, size = 5, prob = arr_prof[1,])
-rbetabinom(n = 10, size = 5, prob = arr_prof[1,])
-rbetabinom(n = 20, size = 5, prob = arr_prof[1,])
-
-rbetabinom(n = c(1, 5, 10, 20), size = 5, prob = arr_prof)
-
-tabulate(bin = sample(x = 1:5, 
-                      size = 1000,
-                      replace = TRUE,
-                      prob = arr_prof[1,]),
-         nbins = 5)
-
-
-v <- rbetabinom(n = arr_vol, size = 5, prob = arr_prof)
-dim(v) <- c(4, 5)
-v
-
-  rbetabinom(n = rep(), 
-             size = sim_bins,
-             prob = demprof_nonadm)
-  
-  x  <- array(1:24, 2:4)
-  xt <- aperm(x, c(2,1,3))
