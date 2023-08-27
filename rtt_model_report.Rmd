@@ -16,7 +16,7 @@ params:
 <hr></hr>
 
 ```{r setup, include=FALSE}
-# Load libraries, declare functions, load data and add logo
+# Load libraries, declare functions and load data
 library(tidyverse)
 library(reshape2)
 library(gganimate)
@@ -45,12 +45,14 @@ sel_bins <- eval(parse(text = params$sel_bins))+1
 
 # Load the RObj data
 load(file = params$obj_file)
+```
 
 # Add logo to the report
-htmltools::img(src = knitr::image_uri('./img/swahsn.png'), 
+
+```{r logo, echo = FALSE}
+  htmltools::img(src = knitr::image_uri('./img/swahsn.png'), 
                alt = 'logo', 
                style = 'position:absolute; top:-50px; right:0; padding:20px; width:300px; height:225px;')
-
 ```
 
 ## Waiting Lists
