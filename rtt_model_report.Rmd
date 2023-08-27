@@ -170,3 +170,8 @@ end_wl <- df_chart_data$`50%`[df_chart_data$period == sim_periods]
 ```
 
 The admitted waiting list for patients waiting `r params$sel_bins_desc` **`r ifelse(start_wl>end_wl,'decreased','increased')`** from **`r start_wl`** at period 0 to **`r end_wl`** at period `r sim_periods` with a 95% prediction at period `r sim_periods` of **`r round(df_chart_data[df_chart_data$period == sim_periods,3],1)` to `r round(df_chart_data[df_chart_data$period == sim_periods,7],1)`**.
+
+
+### Add Kable tables to the sections above
+
+### Add an animation chart
