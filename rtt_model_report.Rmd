@@ -1,0 +1,170 @@
+---
+title: "`r params$title`"
+subtitle: "`r params$subtitle`"
+author: "Richard Blackwell"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output: html_document
+params:
+  title: Referral-To-Treatment (RTT) Model
+  subtitle: <strong>RK9</strong> - University Hospitals Plymouth<br><strong>110</strong> - Trauma and Orthopaedics
+  obj_file: D:\RWorkspace\devon_rtt_model\output\RK9_C110\RK9_C110.RObj
+  output_dir: D:\RWorkspace\devon_rtt_model\output\RK9_C110
+  sel_bins: c(78:104)
+  sel_bins_desc: 78 weeks and over
+---
+
+<hr></hr>
+
+```{r setup, include=FALSE}
+# Load libraries, declare functions, load data and add logo
+library(tidyverse)
+library(reshape2)
+library(gganimate)
+#library(plotly)
+
+palRTTReport <- c('ribbon1' = 'lightskyblue', 'ribbon2' = 'dodgerblue2', 'ribbon3' = 'mediumblue', 'highlight1' = 'white')
+# Ribbon plot
+fnCreateRibbonPlot <- function(chart_data, title, x, y, caption = paste0('Sim Name:', sim_name)){
+  # Covert the chart_data array into a data frame and add the period field
+  plt <- ggplot(data = chart_data) %+%
+    theme_bw(base_size = 12) %+%
+    theme(plot.title = element_text(hjust = 0.5)) %+%
+    labs(title = title, x = x, y = y, caption = caption) %+%
+    geom_ribbon(aes(x = period, ymin = `0%`, ymax = `2.5%`), fill = palRTTReport['ribbon1']) %+%
+    geom_ribbon(aes(x = period, ymin = `2.5%`, ymax = `25%`), fill = palRTTReport['ribbon2']) %+%
+    geom_ribbon(aes(x = period, ymin = `25%`, ymax = `50%`), fill = palRTTReport['ribbon3']) %+%
+    geom_line(aes(x = period, y = `50%`), color = palRTTReport['highlight1'], linewidth = 1) %+%
+    geom_ribbon(aes(x = period, ymin = `50%`, ymax = `75%`), fill = palRTTReport['ribbon3']) %+%
+    geom_ribbon(aes(x = period, ymin = `75%`, ymax = `97.5%`), fill = palRTTReport['ribbon2']) %+%
+    geom_ribbon(aes(x = period, ymin = `97.5%`, ymax = `100%`), fill = palRTTReport['ribbon1'])
+  return(plt)
+}
+
+# Create the selected bins vector
+sel_bins <- eval(parse(text = params$sel_bins))+1
+
+# Load the RObj data
+load(file = params$obj_file)
+
+# Add logo to the report
+htmltools::img(src = knitr::image_uri('./img/swahsn.png'), 
+               alt = 'logo', 
+               style = 'position:absolute; top:-50px; right:0; padding:20px; width:300px; height:225px;')
+
+```
+
+## Waiting Lists
+
+### Non-Admitted - Total Waiting List Size
+
+```{r waiting_list_nonadm_total, echo=FALSE}
+# Create the waiting list totals by period and trial and calculate the minimum, maximum, 2.5th, 25th, 75th and 97.5th centiles, and median values for plotting
+df_chart_data <- as.data.frame(
+  t(
+    apply(
+      apply(wl_nonadm[,,], c(1,3), sum), 
+      1,
+      quantile,
+      probs = c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1)))
+  ) %>% 
+  mutate(period = c(0:sim_periods), .before = 1)
+
+title <- str_wrap('Forecast for Total Size of Non-Admitted RTT Waiting List', width = 120)
+x <- 'Forecast Week'
+y <- 'Number of Patients'
+caption <- sprintf('Sim Params: [%s: Periods=%d, Bins=%d, Trials=%d]',
+                   sim_name, sim_periods, sim_bins, sim_trials)
+plt <- fnCreateRibbonPlot(df_chart_data, title, x, y, caption)
+plt
+
+start_wl <- df_chart_data$`50%`[df_chart_data$period == 0]
+end_wl <- df_chart_data$`50%`[df_chart_data$period == sim_periods]
+```
+
+The non-admitted waiting list **`r ifelse(start_wl>end_wl,'decreased','increased')`** from **`r start_wl`** at period 0 to **`r end_wl`** at period `r sim_periods` with a 95% prediction at period `r sim_periods` of **`r round(df_chart_data[df_chart_data$period == sim_periods,3],1)` to `r round(df_chart_data[df_chart_data$period == sim_periods,7],1)`**.
+
+
+### Admitted - Total Waiting List Size
+
+```{r waiting_list_adm_total, echo=FALSE}
+# Create the waiting list totals by period and trial and calculate the minimum, maximum, 2.5th, 25th, 75th and 97.5th centiles, and median values for plotting
+df_chart_data <- as.data.frame(
+  t(
+    apply(
+      apply(wl_adm[,,], c(1,3), sum), 
+      1,
+      quantile,
+      probs = c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1)))
+  ) %>% 
+  mutate(period = c(0:sim_periods), .before = 1)
+
+title <- str_wrap('Forecast for Total Size of Admitted RTT Waiting List', width = 120)
+x <- 'Forecast Week'
+y <- 'Number of Patients'
+caption <- sprintf('Sim Params: [%s: Periods=%d, Bins=%d, Trials=%d]',
+                   sim_name, sim_periods, sim_bins, sim_trials)
+plt <- fnCreateRibbonPlot(df_chart_data, title, x, y, caption)
+plt
+
+start_wl <- df_chart_data$`50%`[df_chart_data$period == 0]
+end_wl <- df_chart_data$`50%`[df_chart_data$period == sim_periods]
+```
+
+The admitted waiting list **`r ifelse(start_wl>end_wl,'decreased','increased')`** from **`r start_wl`** at period 0 to **`r end_wl`** at period `r sim_periods` with a 95% prediction at period `r sim_periods` of **`r round(df_chart_data[df_chart_data$period == sim_periods,3],1)` to `r round(df_chart_data[df_chart_data$period == sim_periods,7],1)`**.
+
+### Non-Admitted - Patients Waiting `r params$sel_bins_desc`
+
+```{r waiting_list_nonadm_selected, echo=FALSE}
+# Create the waiting list totals by period and trial and calculate the minimum, maximum, 2.5th, 25th, 75th and 97.5th centiles, and median values for plotting
+df_chart_data <- as.data.frame(
+  t(
+    apply(
+      apply(wl_nonadm[,sel_bins,], c(1,3), sum), 
+      1,
+      quantile,
+      probs = c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1)))
+  ) %>% 
+  mutate(period = c(0:sim_periods), .before = 1)
+
+title <- str_wrap(paste0('Forecast for Non-Admitted RTT Waiting List for Patients Waiting ', params$sel_bins_desc), width = 120)
+x <- 'Forecast Week'
+y <- 'Number of Patients'
+caption <- sprintf('Sim Params: [%s: Periods=%d, Bins=%d, Trials=%d]',
+                   sim_name, sim_periods, sim_bins, sim_trials)
+plt <- fnCreateRibbonPlot(df_chart_data, title, x, y, caption)
+plt
+
+start_wl <- df_chart_data$`50%`[df_chart_data$period == 0]
+end_wl <- df_chart_data$`50%`[df_chart_data$period == sim_periods]
+```
+
+The non-admitted waiting list for patients waiting `r params$sel_bins_desc` **`r ifelse(start_wl>end_wl,'decreased','increased')`** from **`r start_wl`** at period 0 to **`r end_wl`** at period `r sim_periods` with a 95% prediction at period `r sim_periods` of **`r round(df_chart_data[df_chart_data$period == sim_periods,3],1)` to `r round(df_chart_data[df_chart_data$period == sim_periods,7],1)`**.
+
+
+### Admitted - Total Waiting List Size
+
+```{r waiting_list_adm_selected, echo=FALSE}
+# Create the waiting list totals by period and trial and calculate the minimum, maximum, 2.5th, 25th, 75th and 97.5th centiles, and median values for plotting
+df_chart_data <- as.data.frame(
+  t(
+    apply(
+      apply(wl_adm[,sel_bins,], c(1,3), sum), 
+      1,
+      quantile,
+      probs = c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1)))
+  ) %>% 
+  mutate(period = c(0:sim_periods), .before = 1)
+
+title <- str_wrap(paste0('Forecast for Admitted RTT Waiting List for Patients Waiting ', params$sel_bins_desc), width = 120)
+x <- 'Forecast Week'
+y <- 'Number of Patients'
+caption <- sprintf('Sim Params: [%s: Periods=%d, Bins=%d, Trials=%d]',
+                   sim_name, sim_periods, sim_bins, sim_trials)
+plt <- fnCreateRibbonPlot(df_chart_data, title, x, y, caption)
+plt
+
+start_wl <- df_chart_data$`50%`[df_chart_data$period == 0]
+end_wl <- df_chart_data$`50%`[df_chart_data$period == sim_periods]
+```
+
+The admitted waiting list for patients waiting `r params$sel_bins_desc` **`r ifelse(start_wl>end_wl,'decreased','increased')`** from **`r start_wl`** at period 0 to **`r end_wl`** at period `r sim_periods` with a 95% prediction at period `r sim_periods` of **`r round(df_chart_data[df_chart_data$period == sim_periods,3],1)` to `r round(df_chart_data[df_chart_data$period == sim_periods,7],1)`**.
