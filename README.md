@@ -52,10 +52,10 @@ Variables ending in `nonadm` refer to the **non-admitted pathway** and those end
 ## Process Variables
 
 ### Waiting List variables
-- `wl_type_nonadm` & `wl_type_adm` - Type of waiting list input, either `matrix` (read direct from input file) or `dist` (created from beta-binomial distribution using parameters supplied in input file).
-- `wl_size_nonadm` & `wl_size_adm` - If the `wl_type_...` is `dist` this is size of the waiting list to be created using the beta-binomial distribution.
-- `wl_shape1_nonadm` & `wl_shape1_adm` - If the `wl_type_...` is `dist` this is shape parameter 1 (also know as $\alpha$ ) used to define the shape of the beta-binomial distribution.
-- `wl_shape2_nonadm` & `wl_shape2_adm` - If the `wl_type_...` is `dist` this is shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution.
+- `wl_type_nonadm` & `wl_type_adm` - Type of waiting list input, either `actual` (read direct from input file) or `synthetic` (created from beta-binomial distribution using parameters supplied in input file).
+- `wl_size_nonadm` & `wl_size_adm` - If the `wl_type_...` is `synthetic` this is size of the waiting list to be created using the beta-binomial distribution.
+- `wl_shape1_nonadm` & `wl_shape1_adm` - If the `wl_type_...` is `synthetic` this is shape parameter 1 (also know as $\alpha$ ) used to define the shape of the beta-binomial distribution.
+- `wl_shape2_nonadm` & `wl_shape2_adm` - If the `wl_type_...` is `synthetic` this is shape parameter 2 (also know as $\beta$ ) used to define the shape of the beta-binomial distribution.
 - `wl_nonadm` & `wl_adm` - Array of dimension `[sim_periods+1, sim_bins+1, sim_trials]` in which to store the waiting list in bins for each simulation period and run. **NB: Dimensions are `sim_periods+1` as the starting waiting list (period 0) will also be recorded, and `sim_bins+1` as the waiting list bins run from zero through to sim_bins.**
 
 ### Clock Stop variables
