@@ -136,7 +136,7 @@ fnWrite3dArray <- function(array, filename, bool_wl_special_case = FALSE){
 # ****************************
 
 # [DEVELOPMENT: This ought to be changed to command line argument input to aid automation for trusts]
-inputfile <- './input/example_simulation.xlsx'
+inputfile <- './input/RK9_C110.xlsx'
 
 # Initiate timer
 dtStart <- Sys.time()
@@ -428,6 +428,9 @@ dem_vol_nonadm[,] <- round(rnorm(n = sim_periods * sim_trials,
                            mean = dem_param_nonadm[,1], 
                            sd = dem_param_nonadm[,2]))
 
+# Ensure that there are no negative demand entries and if there are set to zero
+dem_vol_nonadm[dem_vol_nonadm<0] <- 0
+
 # Create the actual demand by bin, period and trial
 res <- lapply(X = 1:sim_trials,
        FUN = function(t){
@@ -470,6 +473,9 @@ dem_param_adm[,2] <- v_sd
 dem_vol_adm[,] <- round(rnorm(n = sim_periods * sim_trials,
                               mean = dem_param_adm[,1], 
                               sd = dem_param_adm[,2]))
+
+# Ensure that there are no negative demand entries and if there are set to zero
+dem_vol_adm[dem_vol_adm<0] <- 0
 
 # Create the actual demand by bin, period and trial
 res <- lapply(X = 1:sim_trials,
@@ -519,6 +525,9 @@ cap_vol_nonadm[,] <- round(rnorm(n = sim_periods * sim_trials,
                                  mean = cap_param_nonadm[,1], 
                                  sd = cap_param_nonadm[,2]))
 
+# Ensure that there are no negative capacity entries and if there are set to zero
+cap_vol_nonadm[cap_vol_nonadm<0] <- 0
+
 # * * * 2.2.4.1. Admitted ----
 # Create a data frame of period from, period to, mean and sd
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='cap_mean_adm'],
@@ -538,6 +547,9 @@ cap_vol_adm[,] <- round(rnorm(n = sim_periods * sim_trials,
                               mean = cap_param_adm[,1], 
                               sd = cap_param_adm[,2]))
 
+# Ensure that there are no negative capacity entries and if there are set to zero
+cap_vol_adm[cap_vol_adm<0] <- 0
+
 # * * 2.2.5. Non-RTT ----
 # ```````````````````````
 # Populate the non-RTT parameter and volume arrays from the input
@@ -554,6 +566,7 @@ v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['
 nonrtt_param_nonadm <- v_prob
 
 # Create the volume array for all the trials and periods
+# Shouldn't need any error checking here as we have already ensured that cap_vol_nonadm is not negative
 nonrtt_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials, 
                             size = cap_vol_nonadm, 
                             prob = nonrtt_param_nonadm)
@@ -570,6 +583,7 @@ v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['
 nonrtt_param_adm <- v_prob
 
 # Create the volume array for all the trials and periods
+# Shouldn't need any error checking here as we have already ensured that cap_vol_nonadm is not negative
 nonrtt_vol_adm[,] <- rbinom(n = sim_periods*sim_trials, 
                             size = cap_vol_adm, 
                             prob = nonrtt_param_adm)
@@ -590,6 +604,7 @@ v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['
 rott_param_nonadm <- v_prob
 
 # Create the volume array for all the trials and periods
+# Shouldn't need any error checking here as we have already ensured that cap_vol_nonadm is not negative
 rott_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials, 
                              size = cap_vol_nonadm, 
                              prob = rott_param_nonadm)
@@ -606,6 +621,7 @@ v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['
 rott_param_adm <- v_prob
 
 # Create the volume array for all the trials and periods
+# Shouldn't need any error checking here as we have already ensured that cap_vol_nonadm is not negative
 rott_vol_adm[,] <- rbinom(n = sim_periods*sim_trials, 
                           size = cap_vol_adm, 
                           prob = rott_param_adm)
@@ -626,6 +642,7 @@ v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['
 conv_param_nonadm <- v_prob
 
 # Create the volume array for all the trials and periods
+# Shouldn't need any error checking here as we have already ensured that cap_vol_nonadm is not negative
 conv_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials, 
                              size = cap_vol_nonadm, 
                              prob = conv_param_nonadm)
@@ -642,6 +659,7 @@ v_prob <- do.call('c',list(apply(X = df_periods, MARGIN = 1, function(X){rep(X['
 conv_param_adm <- v_prob
 
 # Create the volume array for all the trials and periods
+# Shouldn't need any error checking here as we have already ensured that cap_vol_nonadm is not negative
 conv_vol_adm[,] <- rbinom(n = sim_periods*sim_trials, 
                           size = cap_vol_adm, 
                           prob = conv_param_adm)
@@ -673,18 +691,19 @@ for(t in 1:sim_trials){
     # * * 4.2.1. Non-Admitted ----
     cs_vol_nonadm <- cap_vol_nonadm[p,t] - nonrtt_vol_nonadm[p,t]
     # Check for negative activity and reset to zero if negative
-    cs_vol_nonadm <- max(0, cs_vol_nonadm)
+    cs_vol_nonadm[cs_vol_nonadm<0] <- 0
     
     # * * 4.2.2. Admitted ----
     cs_vol_adm <- cap_vol_adm[p,t] - nonrtt_vol_adm[p,t]
     # Check for negative activity and reset to zero if negative
-    cs_vol_adm <- max(0, cs_vol_adm)
+    cs_vol_adm[cs_vol_adm<0] <- 0
     
     # * 4.3. Process ROTT ----
     # ````````````````````````
 
     # * * 4.3.1. Non-Admitted ----
 
+    # Get the ROTT and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the ROTT volume is greater than the waiting list (shouldn't really happen)
     # then set the ROTT volume to be the size of the waiting list
     rott_vol_nonadm[p,t] <- min(rott_vol_nonadm[p,t], sum(wl_nonadm[p+1,,t]))
@@ -716,6 +735,7 @@ for(t in 1:sim_trials){
     # ``````````````````````````````
     # * * 4.4.1. Non-Admitted ----
 
+    # Get the conversion and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the conversion volume is greater than the waiting list (shouldn't really happen)
     # then set the conversion volume to be the size of the waiting list
     conv_vol_nonadm[p,t] <- min(conv_vol_nonadm[p,t], sum(wl_nonadm[p+1,,t]))
@@ -730,6 +750,7 @@ for(t in 1:sim_trials){
 
     # * * 4.4.2. Admitted ----
 
+    # Get the conversion and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the conversion volume is greater than the waiting list (shouldn't really happen)
     # then set the conversion volume to be the size of the waiting list
     conv_vol_adm[p,t] <- min(conv_vol_adm[p,t], sum(wl_adm[p+1,,t]))
@@ -745,6 +766,7 @@ for(t in 1:sim_trials){
     # * 4.5. Remove Clock Stops ----
     # ``````````````````````````````
     # * * 4.5.1. Non-Admitted ----
+    # Get the clock stop and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the clock stop volume is greater than the waiting list (shouldn't really happen)
     # then set the clock stop volume to be the size of the waiting list
     cs_vol_nonadm <- min(cs_vol_nonadm, sum(wl_nonadm[p+1,,t]))
@@ -759,6 +781,7 @@ for(t in 1:sim_trials){
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - cs_nonadm[p,,t]
     
     # * * 4.5.2. Admitted ----
+    # Get the clock stop and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the clock stop volume is greater than the waiting list (shouldn't really happen)
     # then set the clock stop volume to be the size of the waiting list
     cs_vol_adm <- min(cs_vol_adm, sum(wl_adm[p+1,,t]))
