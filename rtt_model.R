@@ -707,12 +707,21 @@ for(t in 1:sim_trials){
     # If the ROTT volume is greater than the waiting list (shouldn't really happen)
     # then set the ROTT volume to be the size of the waiting list
     rott_vol_nonadm[p,t] <- min(rott_vol_nonadm[p,t], sum(wl_nonadm[p+1,,t]))
-    # Sample the waiting list using the ROTT profile
-    rott_nonadm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
-                                               size = rott_vol_nonadm[p,t],
-                                               replace = FALSE,
-                                               prob = rep(rottprof_nonadm[p,], wl_nonadm[p+1,,t]))+1,
-                                  nbins = sim_bins+1)
+    # Check to see that the waiting list is not empty or not of size 1 due 
+    # following error if waiting list size is one.
+    # (Error in sample.int(x, size, replace, prob) : incorrect number of probabilities
+    if(sum(wl_nonadm[p+1,,t])>1){
+      # Sample the waiting list using the ROTT profile
+      rott_nonadm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
+                                                 size = rott_vol_nonadm[p,t],
+                                                 replace = FALSE,
+                                                 prob = rep(rottprof_nonadm[p,], wl_nonadm[p+1,,t]))+1,
+                                    nbins = sim_bins+1)
+    } else {
+      # Otherwise the sample can only be the current waiting list
+      rott_nonadm[p,,t] <- wl_nonadm[p+1,,t]
+    }
+      
     # Remove the ROTT sample from the waiting list
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - rott_nonadm[p,,t]
     
@@ -722,12 +731,20 @@ for(t in 1:sim_trials){
     # If the ROTT volume is greater than the waiting list (shouldn't really happen)
     # then set the ROTT volume to be the size of the waiting list
     rott_vol_adm[p,t] <- min(rott_vol_adm[p,t], sum(wl_adm[p+1,,t]))
-    # Sample the waiting list using the ROTT profile
-    rott_adm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
-                                            size = rott_vol_adm[p,t],
-                                            replace = FALSE,
-                                            prob = rep(rottprof_adm[p,], wl_adm[p+1,,t]))+1,
-                               nbins = sim_bins+1)
+    # Check to see that the waiting list is not empty or not of size 1 due 
+    # following error if waiting list size is one.
+    # (Error in sample.int(x, size, replace, prob) : incorrect number of probabilities
+    if(sum(wl_adm[p+1,,t])>1){
+      # Sample the waiting list using the ROTT profile
+      rott_adm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
+                                              size = rott_vol_adm[p,t],
+                                              replace = FALSE,
+                                              prob = rep(rottprof_adm[p,], wl_adm[p+1,,t]))+1,
+                                 nbins = sim_bins+1)
+    } else {
+      # Otherwise the sample can only be the current waiting list
+      rott_adm[p,,t] <- wl_adm[p+1,,t]
+    }
     # Remove the ROTT sample from the waiting list
     wl_adm[p+1,,t] <- wl_adm[p+1,,t] - rott_adm[p,,t]
     
@@ -739,12 +756,20 @@ for(t in 1:sim_trials){
     # If the conversion volume is greater than the waiting list (shouldn't really happen)
     # then set the conversion volume to be the size of the waiting list
     conv_vol_nonadm[p,t] <- min(conv_vol_nonadm[p,t], sum(wl_nonadm[p+1,,t]))
-    # Sample the waiting list using the conversion profile
-    conv_nonadm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
-                                            size = conv_vol_nonadm[p,t],
-                                            replace = FALSE,
-                                            prob = rep(convprof_nonadm[p,], wl_nonadm[p+1,,t]))+1,
-                               nbins = sim_bins+1)
+    # Check to see that the waiting list is not empty or not of size 1 due 
+    # following error if waiting list size is one.
+    # (Error in sample.int(x, size, replace, prob) : incorrect number of probabilities
+    if(sum(wl_nonadm[p+1,,t])>1){
+      # Sample the waiting list using the conversion profile
+      conv_nonadm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
+                                              size = conv_vol_nonadm[p,t],
+                                              replace = FALSE,
+                                              prob = rep(convprof_nonadm[p,], wl_nonadm[p+1,,t]))+1,
+                                 nbins = sim_bins+1)
+    } else {
+      # Otherwise the sample can only be the current waiting list
+      conv_nonadm[p,,t] <- wl_nonadm[p+1,,t]
+    }
     # Remove the conversion sample from the waiting list
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - conv_nonadm[p,,t]
 
@@ -754,12 +779,20 @@ for(t in 1:sim_trials){
     # If the conversion volume is greater than the waiting list (shouldn't really happen)
     # then set the conversion volume to be the size of the waiting list
     conv_vol_adm[p,t] <- min(conv_vol_adm[p,t], sum(wl_adm[p+1,,t]))
-    # Sample the waiting list using the conversion profile
-    conv_adm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
-                                               size = conv_vol_adm[p,t],
-                                               replace = FALSE,
-                                               prob = rep(convprof_adm[p,], wl_adm[p+1,,t]))+1,
-                                  nbins = sim_bins+1)
+    # Check to see that the waiting list is not empty or not of size 1 due 
+    # following error if waiting list size is one.
+    # (Error in sample.int(x, size, replace, prob) : incorrect number of probabilities
+    if(sum(wl_adm[p+1,,t])>1){
+      # Sample the waiting list using the conversion profile
+      conv_adm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
+                                                 size = conv_vol_adm[p,t],
+                                                 replace = FALSE,
+                                                 prob = rep(convprof_adm[p,], wl_adm[p+1,,t]))+1,
+                                    nbins = sim_bins+1)
+    } else {
+      # Otherwise the sample can only be the current waiting list
+      conv_adm[p,,t] <- wl_adm[p+1,,t]
+    }
     # Remove the conversion sample from the waiting list
     wl_adm[p+1,,t] <- wl_adm[p+1,,t] - conv_adm[p,,t]
 
@@ -770,13 +803,20 @@ for(t in 1:sim_trials){
     # If the clock stop volume is greater than the waiting list (shouldn't really happen)
     # then set the clock stop volume to be the size of the waiting list
     cs_vol_nonadm <- min(cs_vol_nonadm, sum(wl_nonadm[p+1,,t]))
-    # Sample the waiting list using the clock stop profile
-    cs_nonadm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
-                                             size = cs_vol_nonadm,
-                                             replace = FALSE,
-                                             prob = rep(csprof_nonadm[p,], wl_nonadm[p+1,,t]))+1,
-                                nbins = sim_bins+1)
-    
+    # Check to see that the waiting list is not empty or not of size 1 due 
+    # following error if waiting list size is one.
+    # (Error in sample.int(x, size, replace, prob) : incorrect number of probabilities
+    if(sum(wl_nonadm[p+1,,t])>1){
+      # Sample the waiting list using the clock stop profile
+      cs_nonadm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
+                                               size = cs_vol_nonadm,
+                                               replace = FALSE,
+                                               prob = rep(csprof_nonadm[p,], wl_nonadm[p+1,,t]))+1,
+                                  nbins = sim_bins+1)
+    } else {
+      # Otherwise the sample can only be the current waiting list
+      cs_nonadm[p,,t] <- wl_nonadm[p+1,,t]
+    }
     # Remove the conversion sample from the waiting list
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - cs_nonadm[p,,t]
     
@@ -785,13 +825,20 @@ for(t in 1:sim_trials){
     # If the clock stop volume is greater than the waiting list (shouldn't really happen)
     # then set the clock stop volume to be the size of the waiting list
     cs_vol_adm <- min(cs_vol_adm, sum(wl_adm[p+1,,t]))
-    # Sample the waiting list using the clock stop profile
-    cs_adm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
-                                          size = cs_vol_adm,
-                                          replace = FALSE,
-                                          prob = rep(csprof_adm[p,], wl_adm[p+1,,t]))+1,
-                             nbins = sim_bins+1)
-    
+    # Check to see that the waiting list is not empty or not of size 1 due 
+    # following error if waiting list size is one.
+    # (Error in sample.int(x, size, replace, prob) : incorrect number of probabilities
+    if(sum(wl_adm[p+1,,t])>1){
+      # Sample the waiting list using the clock stop profile
+      cs_adm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
+                                            size = cs_vol_adm,
+                                            replace = FALSE,
+                                            prob = rep(csprof_adm[p,], wl_adm[p+1,,t]))+1,
+                               nbins = sim_bins+1)
+    } else {
+      # Otherwise the sample can only be the current waiting list
+      cs_adm[p,,t] <- wl_adm[p+1,,t]
+    }
     # Remove the conversion sample from the waiting list
     wl_adm[p+1,,t] <- wl_adm[p+1,,t] - cs_adm[p,,t]
     
@@ -829,19 +876,25 @@ for(t in 1:sim_trials){
     # * 4.8. Add in Demand ----
     # `````````````````````````
     # * * 4.8.1. Non-Admitted ----
-    dem_nonadm[p,,t] <- tabulate(bin = rbetabinom(n = dem_vol_nonadm[p,t],
-                                                  size = sim_bins+1,
-                                                  prob = demprof_nonadm[p,])+1,
-                                 nbins = sim_bins+1)
+    # Check to see that the waiting list is not empty
+    if(dem_vol_nonadm[p,t]>0){
+      dem_nonadm[p,,t] <- tabulate(bin = rbetabinom(n = dem_vol_nonadm[p,t],
+                                                    size = sim_bins+1,
+                                                    prob = demprof_nonadm[p,])+1,
+                                   nbins = sim_bins+1)
+    }
     
     # Add the demand sample into the waiting list
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] + dem_nonadm[p,,t]
 
     # * * 4.8.2. Admitted ----
-    dem_adm[p,,t] <- tabulate(bin = rbetabinom(n = dem_vol_adm[p,t],
+    # Check to see that the waiting list is not empty
+    if(dem_vol_adm[p,t]>0){
+      dem_adm[p,,t] <- tabulate(bin = rbetabinom(n = dem_vol_adm[p,t],
                                                size = sim_bins+1,
                                                prob = demprof_adm[p,])+1,
-                              nbins = sim_bins+1)
+                                nbins = sim_bins+1)
+    }
     
     # Add the demand sample into the waiting list
     wl_adm[p+1,,t] <- wl_adm[p+1,,t] + dem_adm[p,,t]
