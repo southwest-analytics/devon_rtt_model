@@ -136,7 +136,7 @@ fnWrite3dArray <- function(array, filename, bool_wl_special_case = FALSE){
 # ****************************
 
 # [DEVELOPMENT: This ought to be changed to command line argument input to aid automation for trusts]
-inputfile <- './input/RK9_C110.xlsx'
+inputfile <- './input/RH8_C130_20221031.xlsx'
 
 # Initiate timer
 dtStart <- Sys.time()
@@ -626,11 +626,24 @@ rott_vol_adm[,] <- rbinom(n = sim_periods*sim_trials,
                           size = cap_vol_adm, 
                           prob = rott_param_adm)
 
-# * * 2.2.7. Conversions ----
-# Populate the conversion parameter and volume arrays from the input, 
-# the ROTT results are time dependent so nothing to calculate here
+# * * 2.2.7. Calculate Clock Stopping Capacity ----
+# Remove the non-RTT activity from the capacity to leave the clock stopping activity
 
 # * * * 2.2.7.1. Non-Admitted ----
+cs_vol_nonadm <- cap_vol_nonadm - nonrtt_vol_nonadm
+# Check for negative activity and reset to zero if negative
+cs_vol_nonadm[cs_vol_nonadm<0] <- 0
+
+# * * * 2.2.7.2. Admitted ----
+cs_vol_adm <- cap_vol_adm - nonrtt_vol_adm
+# Check for negative activity and reset to zero if negative
+cs_vol_adm[cs_vol_adm<0] <- 0
+
+# * * 2.2.8. Conversions ----
+# Populate the conversion parameter and volume arrays from the input, 
+# the conversions results are time dependent so nothing to calculate here
+
+# * * * 2.2.8.1. Non-Admitted ----
 # Create a data frame of period from, period to, and probability
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='conv_prob_nonadm'],
                          prob = df_param_synthetic$value[df_param_synthetic$variable=='conv_prob_nonadm']) %>%
@@ -647,7 +660,7 @@ conv_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials,
                              size = cap_vol_nonadm, 
                              prob = conv_param_nonadm)
 
-# * * * 2.2.7.2. Admitted ----
+# * * * 2.2.8.2. Admitted ----
 # Create a data frame of period from, period to, and probability
 df_periods <- data.frame(from = df_param_synthetic$period[df_param_synthetic$variable=='conv_prob_adm'],
                          prob = df_param_synthetic$value[df_param_synthetic$variable=='conv_prob_adm']) %>%
@@ -685,23 +698,10 @@ for(t in 1:sim_trials){
     # * * 4.1.2. Admitted ----
     wl_adm[p+1,,t] <- wl_adm[p,,t]
     
-    # * 4.2. Calculate Clock Stopping Capacity ----
-    # `````````````````````````````````````````````
-    # Remove the non-RTT activity from the capacity to leave the clock stopping activity
-    # * * 4.2.1. Non-Admitted ----
-    cs_vol_nonadm <- cap_vol_nonadm[p,t] - nonrtt_vol_nonadm[p,t]
-    # Check for negative activity and reset to zero if negative
-    cs_vol_nonadm[cs_vol_nonadm<0] <- 0
-    
-    # * * 4.2.2. Admitted ----
-    cs_vol_adm <- cap_vol_adm[p,t] - nonrtt_vol_adm[p,t]
-    # Check for negative activity and reset to zero if negative
-    cs_vol_adm[cs_vol_adm<0] <- 0
-    
-    # * 4.3. Process ROTT ----
+    # * 4.2. Process ROTT ----
     # ````````````````````````
 
-    # * * 4.3.1. Non-Admitted ----
+    # * * 4.2.1. Non-Admitted ----
 
     # Get the ROTT and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the ROTT volume is greater than the waiting list (shouldn't really happen)
@@ -725,7 +725,7 @@ for(t in 1:sim_trials){
     # Remove the ROTT sample from the waiting list
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - rott_nonadm[p,,t]
     
-    # * * 4.3.2. Admitted ----
+    # * * 4.2.2. Admitted ----
     
     # Get the ROTT and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the ROTT volume is greater than the waiting list (shouldn't really happen)
@@ -748,9 +748,9 @@ for(t in 1:sim_trials){
     # Remove the ROTT sample from the waiting list
     wl_adm[p+1,,t] <- wl_adm[p+1,,t] - rott_adm[p,,t]
     
-    # * 4.4. Remove Conversions ----
+    # * 4.3. Remove Conversions ----
     # ``````````````````````````````
-    # * * 4.4.1. Non-Admitted ----
+    # * * 4.3.1. Non-Admitted ----
 
     # Get the conversion and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the conversion volume is greater than the waiting list (shouldn't really happen)
@@ -773,7 +773,7 @@ for(t in 1:sim_trials){
     # Remove the conversion sample from the waiting list
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - conv_nonadm[p,,t]
 
-    # * * 4.4.2. Admitted ----
+    # * * 4.3.2. Admitted ----
 
     # Get the conversion and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the conversion volume is greater than the waiting list (shouldn't really happen)
@@ -796,9 +796,9 @@ for(t in 1:sim_trials){
     # Remove the conversion sample from the waiting list
     wl_adm[p+1,,t] <- wl_adm[p+1,,t] - conv_adm[p,,t]
 
-    # * 4.5. Remove Clock Stops ----
+    # * 4.4. Remove Clock Stops ----
     # ``````````````````````````````
-    # * * 4.5.1. Non-Admitted ----
+    # * * 4.4.1. Non-Admitted ----
     # Get the clock stop and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the clock stop volume is greater than the waiting list (shouldn't really happen)
     # then set the clock stop volume to be the size of the waiting list
@@ -819,8 +819,10 @@ for(t in 1:sim_trials){
     }
     # Remove the conversion sample from the waiting list
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - cs_nonadm[p,,t]
+
+    browser()
     
-    # * * 4.5.2. Admitted ----
+    # * * 4.4.2. Admitted ----
     # Get the clock stop and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the clock stop volume is greater than the waiting list (shouldn't really happen)
     # then set the clock stop volume to be the size of the waiting list
@@ -842,22 +844,22 @@ for(t in 1:sim_trials){
     # Remove the conversion sample from the waiting list
     wl_adm[p+1,,t] <- wl_adm[p+1,,t] - cs_adm[p,,t]
     
-    # * 4.6. Add in Conversions ----
+    # * 4.5. Add in Conversions ----
     # ``````````````````````````````
 
-    # * * 4.6.1. Non-Admitted ----
+    # * * 4.5.1. Non-Admitted ----
     # Add admitted pathways converting into non-admitted pathways
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] + conv_adm[p,,t]
 
-    # * * 4.6.2. Admitted ----
+    # * * 4.5.2. Admitted ----
     # Add non-admitted pathways converting into admitted pathways
     wl_adm[p+1,,t] <- wl_adm[p+1,,t] + conv_nonadm[p,,t]
     
-    # * 4.7. Increment Period ----
+    # * 4.6. Increment Period ----
     # ````````````````````````````
     # Move both waiting lists forward by one period (i.e. bin 0 becomes bin 1)
     
-    # * * 4.7.1. Non-Admitted ----
+    # * * 4.6.1. Non-Admitted ----
     # Calculate the penultimate bin as the sum of the final and penultimate bin
     wl_nonadm[p+1,sim_bins,t] <- sum(wl_nonadm[p+1,sim_bins:(sim_bins+1),t])
     # Shift everthing right by one period
@@ -865,7 +867,7 @@ for(t in 1:sim_trials){
     # Set the first bin as zero
     wl_nonadm[p+1,1,t] <- 0
 
-    # * * 4.7.2. Admitted ----
+    # * * 4.6.2. Admitted ----
     # Calculate the penultimate bin as the sum of the final and penultimate bin
     wl_adm[p+1,sim_bins,t] <- sum(wl_adm[p+1,sim_bins:(sim_bins+1),t])
     # Shift everthing right by one period
@@ -873,9 +875,9 @@ for(t in 1:sim_trials){
     # Set the first bin as zero
     wl_adm[p+1,1,t] <- 0
     
-    # * 4.8. Add in Demand ----
+    # * 4.7. Add in Demand ----
     # `````````````````````````
-    # * * 4.8.1. Non-Admitted ----
+    # * * 4.7.1. Non-Admitted ----
     # Check to see that the waiting list is not empty
     if(dem_vol_nonadm[p,t]>0){
       dem_nonadm[p,,t] <- tabulate(bin = rbetabinom(n = dem_vol_nonadm[p,t],
@@ -887,7 +889,7 @@ for(t in 1:sim_trials){
     # Add the demand sample into the waiting list
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] + dem_nonadm[p,,t]
 
-    # * * 4.8.2. Admitted ----
+    # * * 4.7.2. Admitted ----
     # Check to see that the waiting list is not empty
     if(dem_vol_adm[p,t]>0){
       dem_adm[p,,t] <- tabulate(bin = rbetabinom(n = dem_vol_adm[p,t],
