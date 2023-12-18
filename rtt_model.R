@@ -136,7 +136,7 @@ fnWrite3dArray <- function(array, filename, bool_wl_special_case = FALSE){
 # ****************************
 
 # [DEVELOPMENT: This ought to be changed to command line argument input to aid automation for trusts]
-inputfile <- './input/RH8_C130_20221031.xlsx'
+inputfile <- './input/RH8_C130.xlsx'
 
 # Initiate timer
 dtStart <- Sys.time()
@@ -657,7 +657,7 @@ conv_param_nonadm <- v_prob
 # Create the volume array for all the trials and periods
 # Shouldn't need any error checking here as we have already ensured that cap_vol_nonadm is not negative
 conv_vol_nonadm[,] <- rbinom(n = sim_periods*sim_trials, 
-                             size = cap_vol_nonadm, 
+                             size = cs_vol_nonadm, 
                              prob = conv_param_nonadm)
 
 # * * * 2.2.8.2. Admitted ----
@@ -674,14 +674,13 @@ conv_param_adm <- v_prob
 # Create the volume array for all the trials and periods
 # Shouldn't need any error checking here as we have already ensured that cap_vol_nonadm is not negative
 conv_vol_adm[,] <- rbinom(n = sim_periods*sim_trials, 
-                          size = cap_vol_adm, 
+                          size = cs_vol_adm, 
                           prob = conv_param_adm)
 
 # 3. Process simulation run (trial) ----
 # **************************************
 for(t in 1:sim_trials){
 
-  
   # 4. Process simulation periods ----
   # **********************************
   for(p in 1:sim_periods)
@@ -802,14 +801,14 @@ for(t in 1:sim_trials){
     # Get the clock stop and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the clock stop volume is greater than the waiting list (shouldn't really happen)
     # then set the clock stop volume to be the size of the waiting list
-    cs_vol_nonadm <- min(cs_vol_nonadm, sum(wl_nonadm[p+1,,t]))
+    cs_value <- min(cs_vol_nonadm[p,t], sum(wl_nonadm[p+1,,t]))
     # Check to see that the waiting list is not empty or not of size 1 due 
     # following error if waiting list size is one.
     # (Error in sample.int(x, size, replace, prob) : incorrect number of probabilities
     if(sum(wl_nonadm[p+1,,t])>1){
       # Sample the waiting list using the clock stop profile
       cs_nonadm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_nonadm[p+1,,t]),
-                                               size = cs_vol_nonadm,
+                                               size = cs_value,
                                                replace = FALSE,
                                                prob = rep(csprof_nonadm[p,], wl_nonadm[p+1,,t]))+1,
                                   nbins = sim_bins+1)
@@ -820,20 +819,18 @@ for(t in 1:sim_trials){
     # Remove the conversion sample from the waiting list
     wl_nonadm[p+1,,t] <- wl_nonadm[p+1,,t] - cs_nonadm[p,,t]
 
-    browser()
-    
     # * * 4.4.2. Admitted ----
     # Get the clock stop and waiting list volumes for this period and trial (NB: p+1 for wl)
     # If the clock stop volume is greater than the waiting list (shouldn't really happen)
     # then set the clock stop volume to be the size of the waiting list
-    cs_vol_adm <- min(cs_vol_adm, sum(wl_adm[p+1,,t]))
+    cs_value <- min(cs_vol_adm[p,t], sum(wl_adm[p+1,,t]))
     # Check to see that the waiting list is not empty or not of size 1 due 
     # following error if waiting list size is one.
     # (Error in sample.int(x, size, replace, prob) : incorrect number of probabilities
     if(sum(wl_adm[p+1,,t])>1){
       # Sample the waiting list using the clock stop profile
       cs_adm[p,,t] <- tabulate(bin = sample(x = rep(0:sim_bins, wl_adm[p+1,,t]),
-                                            size = cs_vol_adm,
+                                            size = cs_value,
                                             replace = FALSE,
                                             prob = rep(csprof_adm[p,], wl_adm[p+1,,t]))+1,
                                nbins = sim_bins+1)
